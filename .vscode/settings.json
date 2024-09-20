@@ -1,0 +1,11 @@
+{
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true
+  },
+  "python.testing.pytestEnabled": true,
+  "files.watcherExclude": {
+    "**/target": true
+  },
+  "pylint.args": ["--max-line-length=120"]
+}

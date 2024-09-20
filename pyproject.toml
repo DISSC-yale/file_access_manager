@@ -1,0 +1,211 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "file_access_manager"
+dynamic = ["version"]
+description = "A tool to manage access to directories."
+readme = "README.md"
+requires-python = ">=3.7"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Micah", email = "micah.iserman@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "pandas",
+]
+
+[project.scripts]
+manage-access = "file_access_manager.cli:main"
+
+[project.optional-dependencies]
+dev = [
+  "mkdocs>=1.4.3",
+  "mkdocstrings[python]>=0.18",
+  "mkdocs-material>=9.1.15",
+]
+
+[project.urls]
+Documentation = "https://DISSC-yale.github.io/file_access_manager"
+Issues = "https://github.com/DISSC-yale/file_access_manager/issues"
+Source = "https://github.com/DISSC-yale/file_access_manager"
+
+[tool.hatch.version]
+path = "src/file_access_manager/__about__.py"
+
+[tool.hatch.envs.default]
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+]
+[tool.hatch.envs.default.scripts]
+test = [
+  "coverage run -m pytest {args:tests}",
+  " - coverage combine",
+  "coverage html -d docs_source/coverage",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.venv",
+  "/.vscode",
+  "/docs",
+  "/docs_source",
+  "/.env",
+  "/.gitignore",
+  "/mkdocs.yml",
+]
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "mkdocs",
+  "mkdocstrings[python]",
+  "mkdocs-material",
+]
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --clean --strict"
+serve = "mkdocs serve --dev-addr localhost:8000 --clean"
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
+
+[[tool.hatch.envs.lint.matrix]]
+python = ["3.10"]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+  "pytest",
+  "black>=23.1.0",
+  "mypy>=1.0.0",
+  "ruff>=0.0.243",
+]
+[tool.hatch.envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:src/file_access_manager tests}"
+style = [
+  "ruff check {args:.}",
+  "black --check --diff {args:.}",
+]
+fmt = [
+  "black {args:.}",
+  "ruff check --fix {args:.}",
+  "style",
+]
+all = [
+  "style",
+  "typing",
+]
+
+[tool.black]
+target-version = ["py37"]
+line-length = 120
+
+[tool.ruff]
+target-version = "py37"
+line-length = 120
+lint.select = [
+  "A",
+  "ARG",
+  "B",
+  "C",
+  "DTZ",
+  "E",
+  "EM",
+  "F",
+  "FBT",
+  "I",
+  "ICN",
+  "ISC",
+  "N",
+  "PLC",
+  "PLE",
+  "PLR",
+  "PLW",
+  "Q",
+  "RUF",
+  "S",
+  "T",
+  "TID",
+  "UP",
+  "W",
+  "YTT",
+]
+lint.ignore = [
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
+  # Ignore checks for possible passwords
+  "S105", "S106", "S107",
+  # Ignore complexity
+  "C901", "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+  # Allow base import names
+  "ICN001",
+  # Allow defaults
+  "B008", "FBT001", "FBT002",
+  # Allow constants
+  "PLR2004",
+  # Allow print
+  "T201",
+  # Allow loop overwrite
+  "PLW2901",
+  # Allow MD5s
+  "S324",
+  # Allow pickle
+  "S301",
+  # Allow quoted types for Queue
+  "UP037",
+  # Allow explicit string concationation
+  "ISC003",
+  # Allow untrusted inputs
+  "S603"
+]
+lint.unfixable = [
+  # Don't touch unused imports
+  "F401",
+]
+exclude = ["src/file_access_manager/__init__.py"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["file_access_manager"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests can use magic values, assertions, and relative imports
+"tests/**/*" = ["PLR2004", "S101", "TID252"]
+
+[tool.coverage.run]
+source_pkgs = ["file_access_manager", "tests"]
+branch = true
+parallel = true
+omit = [
+  "*/__about__.py",
+  "*/__init__.py",
+]
+relative_files = true
+
+[tool.coverage.paths]
+file_access_manager = ["src/file_access_manager", "*/file_access_manager"]
+tests = ["tests", "*/file_access_manager/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

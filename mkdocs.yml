@@ -1,0 +1,54 @@
+site_name: File Access Manager
+site_url: https://DISSC-yale.github.io/file_access_manager
+theme:
+  name: material
+  font:
+    text: Nunito Sans
+    code: SFMono-Regular
+  palette:
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: black
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light theme
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: black
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark theme
+  features:
+    - content.code.copy
+extra_css:
+  - stylesheets/extra.css
+repo_url: https://github.com/DISSC-yale/file_access_manager
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+docs_dir: 'docs_source'
+site_dir: 'docs'
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+nav:
+  - Home: README.md
+  - Projects: Projects.md
+  - Functions:
+      - functions/Projects.md
+      - functions/Locations.md
+      - functions/Access.md
+  - Test Coverage: coverage/index.html
