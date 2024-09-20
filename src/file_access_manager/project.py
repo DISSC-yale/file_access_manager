@@ -84,6 +84,20 @@ def init_manager_project(
     if not isfile(ACCESS_FILE):
         pandas.DataFrame(columns=list(ACCESS_STRUCTURE.keys())).to_csv(ACCESS_FILE, index=False)
         pandas.DataFrame(columns=list(ACCESS_STRUCTURE.keys())).to_csv("pending_" + ACCESS_FILE, index=False)
+    if not isfile("README.md"):
+        with open("README.md", "w", encoding="utf-8") as opened:
+            opened.write(
+                "\n\n".join(
+                    [
+                        "This is an access management project initialized by `manage-access init` from the"
+                        " [file_access_manager](https://dissc-yale.github.io/file_access_manager/) package.",
+                        "Install that package with pip:",
+                        "```sh\npip install git+https://github.com/DISSC-yale/file_access_manager.git\n```",
+                        "Then you can use the `manage-access` commands:",
+                        "```sh\nmanage-access -h\nmanage-access locations -h\n```",
+                    ]
+                )
+            )
     _git_update("initial commit" if fresh else "reinitialized")
 
 

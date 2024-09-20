@@ -16,17 +16,17 @@ ID_PATH = which("id")
 SETFACL_PATH = which("setfacl")
 
 
-def set_permission(location: str, user: str, permissions="rx", group: "Union[str, None]" = None):
+def set_permission(location: str, user: str, group: "Union[str, None]" = None, permissions="rx"):
     """
     Grant a user permission, and add them to a group.
 
     Args:
         location (str): Name of a location, or path, to grant `user` `permissions` to.
         user (str): Name of the user.
-        permissions (str): Permission string (e.g., "rwx").
         group (str): Group to assign the user to. Defaults to the user themselves. Here,
             groups grant the user the group's access, and any permissions assigned to the
             user under the group would be removed with the group not on removal from the group.
+        permissions (str): Permission string (e.g., "rwx").
     """
     access = _get_accesses()
     if isdir(location):
@@ -55,8 +55,8 @@ def set_permission(location: str, user: str, permissions="rx", group: "Union[str
                 _log(f"set permissions for {user}: can {permissions} {path}, under {group}")
                 changed = True
         else:
-            _log(f"failed to set permissions for {user}: {res.stderr.decode('utf-8')}")
-            changed = True
+            error = res.stderr.decode("utf-8").strip().replace("\n", " ")
+            _log(f"failed to set permissions for {user}: {error}")
     if changed:
         _git_update(f"set permissions to {location} for {user} under {group}")
 
@@ -73,12 +73,10 @@ def _get_pendings():
 
 def _set_permissions(user: str, path: str, perms: str):
     if SETFACL_PATH:
-        res = subprocess.run(
-            [SETFACL_PATH, "-R", "-d", "-m", f"user:{user}:{perms}", path], check=False, capture_output=True
-        )
+        res = subprocess.run([SETFACL_PATH, "-R", "-m", f"d:u:{user}:{perms}", path], check=False, capture_output=True)
         if res.stderr != b"":
             warnings.warn(
-                f"failed to set permissions for user `{user}` on path `{path}`: {res.stderr.decode('utf-8')}",
+                f"failed to set permissions for user {user} on path {path}: {res.stderr.decode('utf-8')}",
                 stacklevel=2,
             )
         return res
@@ -137,7 +135,7 @@ def _user_exists(user: str):
 
 def _revoke(user: str, path: str):
     if SETFACL_PATH:
-        return subprocess.run([SETFACL_PATH, "-x", f"user:{user}", path], check=False, capture_output=True)
+        return subprocess.run([SETFACL_PATH, "-x", f"d:u:{user}", path], check=False, capture_output=True)
 
 
 def revoke_permissions(user: str, location: "Union[str, None]" = None):
@@ -177,3 +175,24 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None):
             message = f"removed {user} from pending without setting permissions"
             _log(message)
             _git_update(message)
+
+
+def check_access(
+    user: "Union[str, None]" = None, location: "Union[str, None]" = None, group: "Union[str, None]" = None
+):
+    access = _get_accesses()
+    pending = _get_pendings()
+    col_name = "user" if user else "group" if group else "location"
+    value = user if user else group if group else location
+    if user:
+        subset = access[access[col_name] == value]
+        if len(subset):
+            print(f"\ncurrent {col_name} access:\n")
+            print(subset.to_string())
+        pending_subset = pending[pending[col_name] == value]
+        if len(pending_subset):
+            print(f"\npending {col_name} access:\n")
+            print(pending_subset.to_string())
+        else:
+            print(f"{col_name} {value} not found")
+    return (subset, pending_subset)

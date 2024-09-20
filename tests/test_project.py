@@ -5,6 +5,7 @@ from shutil import which
 from tempfile import TemporaryDirectory
 
 import pandas
+
 import file_access_manager
 
 CLI_PATH = which("manage-access")
@@ -25,6 +26,7 @@ def test_functions():
             "locations.json",
             "log.txt",
             "pending_access.csv",
+            "README.md",
         ]
         chdir(project_dir)
 
@@ -36,9 +38,12 @@ def test_functions():
         assert re.search(f"location_name: {test_dir}", locations)
 
         # access management
-        file_access_manager.set_permission("location_name", "user_name")
+        file_access_manager.set_permission("location_name", "user_name", "group_name")
         pending = pandas.read_csv("pending_access.csv")
-        assert pending.iloc[0].to_list()[:4] == ["user_name", "user_name", test_dir, "rx"]
+        assert pending.iloc[0].to_list()[:4] == ["user_name", "group_name", test_dir, "rx"]
+
+        _, pending_subset = file_access_manager.check_access("user_name")
+        assert all(pending == pending_subset)
 
         file_access_manager.revoke_permissions("user_name")
         pending = pandas.read_csv("pending_access.csv")
@@ -66,6 +71,7 @@ def test_cli():
             "locations.json",
             "log.txt",
             "pending_access.csv",
+            "README.md",
         ]
         chdir(project_dir)
 
@@ -77,9 +83,12 @@ def test_cli():
         assert re.search(f"location_name: {test_dir}", locations.stdout.decode("utf-8"))
 
         # access management
-        subprocess.run([CLI_PATH, "location_name", "user_name"], check=False, capture_output=True)
+        subprocess.run([CLI_PATH, "location_name", "user_name", "group_name"], check=False, capture_output=True)
         pending = pandas.read_csv("pending_access.csv")
-        assert pending.iloc[0].to_list()[:4] == ["user_name", "user_name", test_dir, "rx"]
+        assert pending.iloc[0].to_list()[:4] == ["user_name", "group_name", test_dir, "rx"]
+
+        res = subprocess.run([CLI_PATH, "check", "user_name"], check=False, capture_output=True)
+        assert re.search("pending user access", res.stdout.decode("utf-8"))
 
         subprocess.run([CLI_PATH, "-r", "user_name"], check=False, capture_output=True)
         pending = pandas.read_csv("pending_access.csv")
