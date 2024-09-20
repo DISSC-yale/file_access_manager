@@ -25,7 +25,7 @@ def set_permission(location: str, user: str, group: "Union[str, None]" = None, p
         user (str): Name of the user.
         group (str): Group to assign the user to. Defaults to the user themselves. Here,
             groups grant the user the group's access, and any permissions assigned to the
-            user under the group would be removed with the group not on removal from the group.
+            user in the group would be removed with the group not on removal from the group.
         permissions (str): Permission string (e.g., "rwx").
     """
     access = _get_accesses()
@@ -38,27 +38,27 @@ def set_permission(location: str, user: str, group: "Union[str, None]" = None, p
             raise RuntimeError(msg)
     if not group:
         group = user
-    changed = False
+    message = ""
     if ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr != b"":
         pending = _get_pendings()
         updated = _append_row(pending, user, group, path, permissions)
         if len(pending) != len(updated):
             updated.to_csv("pending_" + ACCESS_FILE, index=False)
-            _log(f"added {user} to pending because they do not exist")
-            changed = True
+            message = f"added {user} to pending access for {location} in group {group}"
+            _log(message)
     else:
         res = _set_permissions(user, path, permissions)
         if res.stderr == b"":
             updated = _append_row(access, user, group, path, permissions)
             if len(access) != len(updated):
                 updated.to_csv(ACCESS_FILE, index=False)
-                _log(f"set permissions for {user}: can {permissions} {path}, under {group}")
-                changed = True
+                message = f"set permissions to {location} for {user} in group {group}"
+                _log(message)
         else:
-            error = res.stderr.decode("utf-8").strip().replace("\n", " ")
-            _log(f"failed to set permissions for {user}: {error}")
-    if changed:
-        _git_update(f"set permissions to {location} for {user} under {group}")
+            print(res.stderr)
+            _log(f"failed to set permissions for {user}")
+    if message:
+        _git_update(message)
 
 
 def _get_accesses():
@@ -193,6 +193,6 @@ def check_access(
         if len(pending_subset):
             print(f"\npending {col_name} access:\n")
             print(pending_subset.to_string())
-        else:
+        if len(subset) == 0 and len(pending_subset) == 0:
             print(f"{col_name} {value} not found")
     return (subset, pending_subset)
