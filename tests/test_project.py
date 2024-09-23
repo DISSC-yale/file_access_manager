@@ -88,7 +88,7 @@ def test_cli():
         assert pending.iloc[0].to_list()[:4] == ["user_name", "group_name", test_dir, "rx"]
 
         res = subprocess.run([CLI_PATH, "check", "user_name"], check=False, capture_output=True)
-        assert re.search("pending user access", res.stdout.decode("utf-8"))
+        assert re.search("pending access", res.stdout.decode("utf-8"))
 
         subprocess.run([CLI_PATH, "-r", "user_name"], check=False, capture_output=True)
         pending = pandas.read_csv("pending_access.csv")

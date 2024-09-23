@@ -36,6 +36,12 @@ Name a location:
 manage-access locations location_name /full/path/to/location
 ```
 
+Check current access to that location:
+
+```sh
+manage-access check -l location_name
+```
+
 Manage access to that location:
 
 ```sh
