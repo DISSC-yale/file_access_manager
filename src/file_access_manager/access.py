@@ -155,7 +155,7 @@ def _revoke(user: str, path: str):
             raise RuntimeError(msg)
         else:
             set_perms = _get_current_access(path)
-            if user not in set_perms:
+            if user in set_perms:
                 msg = failure_message + "still appears in access list"
                 raise RuntimeError(msg)
     else:
@@ -222,6 +222,8 @@ def check_access(
     """
     access = _get_accesses()
     pending = _get_pendings()
+    if location:
+        location = _get_locations().get(location, location)
     if user:
         access = access[access["user"] == user]
         pending = pending[pending["user"] == user]
