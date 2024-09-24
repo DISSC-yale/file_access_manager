@@ -218,7 +218,7 @@ def check_access(
         verbose (bool): If `False`, will not print subset access.
 
     Returns:
-        A tuple containing the subset of [0] current and [1] pending access.
+        A tuple containing [0] current and [1] pending access.
     """
     access = _get_accesses()
     pending = _get_pendings()
@@ -257,7 +257,7 @@ def check_access(
 def _get_current_access(location: str):
     if GETFACL_PATH:
         current = subprocess.run([GETFACL_PATH, "-dc", location], check=False, capture_output=True)
-        if current.stderr != b"":
+        if current.stdout == b"" and current.stderr != b"":
             msg = f"failed to check current access: {current.stderr.decode('utf-8')}"
             raise RuntimeError(msg)
         access = current.stdout.decode("utf-8")
