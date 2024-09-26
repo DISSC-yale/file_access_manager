@@ -11,14 +11,21 @@ from typing import Union
 import pandas
 
 from file_access_manager.locations import _get_locations
-from file_access_manager.project import ACCESS_FILE, ACCESS_STRUCTURE, _check_for_project, _git_update
+from file_access_manager.project import (
+    ACCESS_FILE,
+    ACCESS_STRUCTURE,
+    GIT_PATH,
+    _check_for_project,
+    _get_config,
+    _git_update,
+)
 
 ID_PATH = which("id")
 SETFACL_PATH = which("setfacl")
 GETFACL_PATH = which("getfacl")
 
 
-def set_permission(location: str, user: str, group: "Union[str, None]" = None, permissions="rx"):
+def set_permission(location: str, user: str, group: Union[str, None] = None, permissions="rx"):
     """
     Grant a user permission, and add them to a group.
 
@@ -31,20 +38,21 @@ def set_permission(location: str, user: str, group: "Union[str, None]" = None, p
         permissions (str): Permission string (e.g., "rwx").
     """
     access = _get_accesses()
+    defer = _get_config().get("defer", False)
     if isdir(location):
         path = location
     else:
         path = _get_locations().get(location, "")
-        if not isdir(path):
+        if not defer and not isdir(path):
             msg = f"location ({location}) does not exist"
             raise RuntimeError(msg)
     if not group:
         group = user
     message = ""
-    if ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr != b"":
+    if defer or (ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr != b""):
         pending = _get_pendings()
         updated = _append_row(pending, user, group, path, permissions)
-        if len(pending) != len(updated):
+        if not updated.equals(pending):
             updated.to_csv("pending_" + ACCESS_FILE, index=False)
             message = f"added {user} to pending access for {location} in group {group}"
             _log(message)
@@ -52,7 +60,7 @@ def set_permission(location: str, user: str, group: "Union[str, None]" = None, p
         res = _set_permissions(user, path, permissions)
         if res.stderr == b"":
             updated = _append_row(access, user, group, path, permissions)
-            if len(access) != len(updated):
+            if not updated.equals(access):
                 updated.to_csv(ACCESS_FILE, index=False)
                 message = f"set permissions to {location} for {user} in group {group}"
                 _log(message)
@@ -96,22 +104,17 @@ def _set_permissions(user: str, path: str, perms: str):
 
 
 def _append_row(current: pandas.DataFrame, user: str, group: str, location: str, permissions: str):
+    new_row = pandas.DataFrame(
+        {
+            "user": [user],
+            "group": [group],
+            "location": [location],
+            "permissions": [permissions],
+            "date": [ctime()],
+        }
+    )
     return (
-        pandas.concat(
-            [
-                pandas.DataFrame(
-                    {
-                        "user": [user],
-                        "group": [group],
-                        "location": [location],
-                        "permissions": [permissions],
-                        "date": [ctime()],
-                    }
-                ),
-                current,
-            ],
-            ignore_index=True,
-        )
+        pandas.concat([new_row, current], ignore_index=True)
         .drop_duplicates(["user", "group", "location"])
         .sort_values(["user", "group", "location"])
     )
@@ -122,8 +125,17 @@ def _log(message: str):
         opened.write(f"{ctime()}: {message}\n")
 
 
-def check_pending():
-    """Check any users pending access, and apply permissions if they now exist."""
+def check_pending(pull=True, push=False):
+    """
+    Check any users pending access, and apply permissions if they exist.
+
+    Args:
+        pull (bool): If `False`, will not pull the remote before checking pending.
+        push (bool): If `True`, will push any changes made (bypassing auto_push option).
+    """
+    if pull and GIT_PATH and isdir(".git"):
+        if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).stderr != b"":
+            warnings.warn("failed to pull before checking pending", stacklevel=2)
     pending_file = "pending_" + ACCESS_FILE
     if isfile(pending_file):
         pending = _get_pendings()
@@ -131,13 +143,16 @@ def check_pending():
         for user, access in pending.groupby("user"):
             if _user_exists(user):
                 for location, permissions in zip(access["location"], access["permissions"]):
-                    _set_permissions(user, location, permissions)
+                    if permissions == "":
+                        revoke_permissions(user, location, False)
+                    else:
+                        _set_permissions(user, location, permissions)
                 pending = pending[pending["user"] != user]
-                _log(f"removed {user} from pending after setting permissions")
                 updated = True
+                _log(f"removed {user} from pending after setting permissions")
         if updated:
             pending.to_csv(ACCESS_FILE, index=False)
-            _git_update("processed pending permissions")
+            _git_update("processed pending permissions", push)
     else:
         print("no pending users")
 
@@ -163,13 +178,32 @@ def _revoke(user: str, path: str):
         raise RuntimeError(msg)
 
 
-def revoke_permissions(user: str, location: "Union[str, None]" = None):
+def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pending=True):
+    """
+    Remove access from a user.
+
+    Args:
+        user (str): User to remove access from.
+        location (str): Location to remove `user`s access from; if not
+            specified, access from all locations will be removed.
+        from_pending (bool): If `False`, will not also remove the user from pending access.
+    """
     access = _get_accesses()
     removed = su = access["user"] == user
     if any(su):
         if location:
             locations = _get_locations()
             path = locations.get(location, location)
+        if _get_config().get("defer", False):
+            pending = _get_pendings()
+            updated = _append_row(pending, user, user, path if location else "", "")
+            if not updated.equals(pending):
+                updated.to_csv("pending_" + ACCESS_FILE, index=False)
+                message = f"added {user} to pending removal" + (f" from {location}" if location else "")
+                _log(message)
+                _git_update(message)
+            return
+        if location:
             _revoke(user, path)
             removed = removed & (access["location"] == path)
             _log(f"removed permissions from {user}: can no longer access {path}")
@@ -195,7 +229,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None):
         _git_update(
             f"removed access to {location} ({path}) from {user}" if location else f"remove all access from {user}"
         )
-    else:
+    elif from_pending:
         pending = _get_pendings()
         su = pending["user"] == user
         if any(su):

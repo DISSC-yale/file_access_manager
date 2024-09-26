@@ -1,7 +1,8 @@
+import json
 import re
 import subprocess
 from os import chdir, getcwd, listdir, makedirs
-from shutil import which
+from shutil import rmtree, which
 from tempfile import TemporaryDirectory
 
 import pandas
@@ -15,6 +16,7 @@ def test_functions():
     with TemporaryDirectory() as temp:
         initial_dir = getcwd()
         project_dir = temp + "/access/"
+        rmtree(project_dir, True)
 
         # project initialization
         file_access_manager.init_manager_project(project_dir)
@@ -53,6 +55,12 @@ def test_functions():
         file_access_manager.remove_location("location_name")
         locations = file_access_manager.list_locations()
         assert re.match("No named locations", locations)
+
+        # config editing
+        file_access_manager.set_options(defer=True)
+        with open(f"{project_dir}/config.json", encoding="utf-8") as opened:
+            assert json.load(opened)["defer"]
+
         chdir(initial_dir)
 
 
@@ -60,6 +68,7 @@ def test_cli():
     with TemporaryDirectory() as temp:
         initial_dir = getcwd()
         project_dir = temp + "/access/"
+        rmtree(project_dir, True)
 
         # project initialization
         subprocess.run([CLI_PATH, "init", project_dir], check=False)
@@ -98,4 +107,10 @@ def test_cli():
         subprocess.run([CLI_PATH, "locations", "-r", "location_name"], check=False, capture_output=True)
         locations = subprocess.run([CLI_PATH, "locations"], check=False, capture_output=True)
         assert re.match("No named locations", locations.stdout.decode("utf-8"))
+
+        # config editing
+        subprocess.run([CLI_PATH, "config", "-d", "true"], check=False, capture_output=True)
+        with open(f"{project_dir}/config.json", encoding="utf-8") as opened:
+            assert json.load(opened)["defer"]
+
         chdir(initial_dir)

@@ -23,6 +23,7 @@ def init_manager_project(
     git_remote: "Union[str, None]" = None,
     auto_commit=True,
     auto_push=False,
+    defer=False,
     git_branch="main",
 ):
     """
@@ -35,6 +36,7 @@ def init_manager_project(
         git_remote (str): Location of a remote repository.
         auto_commit (bool): If `False`, will not commit after each action. This is added to the `config.json` file.
         auto_push (bool): If `True`, will push to the remote after each action. This is added to the `config.json` file.
+        defer (bool): If `True`, will always add users to pending, leaving actual access granting to a later process.
         git_branch (str): Name of the branch to initially pull in or create.
     """
     makedirs(base_dir, exist_ok=True)
@@ -57,11 +59,7 @@ def init_manager_project(
         subprocess.run([GIT_PATH, "checkout", "-b", git_branch], check=False, capture_output=True)
         with open(".gitignore", "w", encoding="utf-8") as opened:
             opened.write(".*\n!.gitignore")
-    config = _get_config()
-    config["auto_commit"] = auto_commit
-    config["auto_push"] = auto_push
-    with open("config.json", "w", encoding="utf-8") as opened:
-        json.dump(config, opened, indent=2, sort_keys=True)
+    set_options(auto_commit=auto_commit, auto_push=auto_push, defer=defer)
     if managers:
         managers_file = "managers.txt"
         if isfile(managers_file):
@@ -101,10 +99,38 @@ def init_manager_project(
     _git_update("initial commit" if fresh else "reinitialized")
 
 
+def set_options(**kwargs: Union[bool, str]):
+    """
+    Set Project Options
+
+    Args:
+        **kwargs: Named options with associated values:
+
+            - `auto_commit`: If `False`, will not git commit each access actions; defaults to `True`.
+            - `auto_push`: If `True`, will not git push each access actions; defaults to `False`.
+            - `defer`: If `True`, will always initially add users to pending without checking if they
+                exist, leaving permission setting to a separate process; defaults to `False`.
+
+    Examples:
+        >>> file_access_manager.set_options(defer=True)
+    """
+    file = "config.json"
+    current = _get_config()
+    for name, value in kwargs.items():
+        if name not in ["auto_commit", "auto_push", "defer"]:
+            msg = f"{name} is not a recognized option"
+            raise RuntimeError(msg)
+        if value is not None:
+            current[name] = value if isinstance(value, bool) else value.lower() == "true"
+    with open(file, "w", encoding="utf-8") as opened:
+        json.dump(current, opened, indent=2, sort_keys=True)
+    return current
+
+
 def _get_config():
     file = "config.json"
     if not isfile(file):
-        config = {"auto_commit": True, "auto_push": False}
+        config = {"auto_commit": True, "auto_push": False, "defer": False}
         with open(file, "w", encoding="utf-8") as opened:
             json.dump(config, opened, indent=2, sort_keys=True)
     else:
@@ -113,13 +139,13 @@ def _get_config():
     return config
 
 
-def _git_update(message: str):
+def _git_update(message: str, bypass=False):
     config = _get_config()
     if isdir(".git") and GIT_PATH:
-        if config["auto_commit"]:
+        if config["auto_commit"] or bypass:
             subprocess.run([GIT_PATH, "add", "-A"], check=False)
             subprocess.run([GIT_PATH, "commit", "-m", message], check=False)
-        if config["auto_push"]:
+        if config["auto_push"] or bypass:
             subprocess.run([GIT_PATH, "push"], check=False)
 
 
