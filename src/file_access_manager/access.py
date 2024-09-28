@@ -65,7 +65,6 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
                 message = f"set permissions to {location} for {user} in group {group}"
                 _log(message)
         else:
-            print(res.stderr)
             _log(f"failed to set permissions for {user}")
     if message:
         _git_update(message)
@@ -99,8 +98,8 @@ def _set_permissions(user: str, path: str, perms: str):
                 )
                 raise RuntimeError(msg)
         return res
-    else:
-        msg = "`setfacl` command not found"
+    msg = "`setfacl` command not found"
+    raise RuntimeError(msg)
 
 
 def _append_row(current: pandas.DataFrame, user: str, group: str, location: str, permissions: str):
@@ -142,14 +141,22 @@ def check_pending(pull=True, push=False):
         updated = False
         for user, access in pending.groupby("user"):
             if _user_exists(user):
-                for location, permissions in zip(access["location"], access["permissions"]):
+                for group, location, permissions in zip(access["group"], access["location"], access["permissions"]):
                     if pandas.isna(permissions):
                         revoke_permissions(user, location, True)
+                        updated = True
                     else:
-                        _set_permissions(user, location, permissions)
-                pending = pending[pending["user"] != user]
-                updated = True
-                _log(f"removed {user} from pending after setting permissions")
+                        set_permission(location, user, group, permissions)
+                        res = _set_permissions(user, location, permissions)
+                        if res.stderr == b"":
+                            updated = True
+                            current_access = _get_accesses()
+                            added_access = _append_row(current_access, user, group, location, permissions)
+                            if not added_access.equals(current_access):
+                                added_access.to_csv(ACCESS_FILE, index=False)
+                                _log(f"set permissions to {location} for {user} in group {group}")
+                    if updated:
+                        pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
         if updated:
             pending.to_csv(pending_file, index=False)
             _git_update("processed pending permissions", push)
