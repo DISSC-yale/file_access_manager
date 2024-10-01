@@ -19,6 +19,7 @@ def main():
                     "manage-access locations",
                     "manage-access check",
                     "manage-access pending",
+                    "manage-access config",
                     "manage-access init\n",
                 ]
             )
@@ -108,11 +109,24 @@ def main():
         parser.add_argument("group", nargs="?", help="group to assign the user to")
         parser.add_argument("-p", "--perms", default="rx", dest="permissions", help="permissions to set to the user")
         parser.add_argument("-r", "--remove", dest="remove", help="user to revoke access from")
+        parser.add_argument(
+            "-n",
+            "--parents",
+            dest="parents",
+            default=1,
+            help="number of parent directories to also assign read and execute permission to",
+        )
         args = parser.parse_args(sys.argv[1:])
         if args.remove:
             revoke_permissions(args.remove, args.location)
         elif args.user and args.location:
-            set_permission(location=args.location, user=args.user, group=args.group, permissions=args.permissions)
+            set_permission(
+                location=args.location,
+                user=args.user,
+                group=args.group,
+                permissions=args.permissions,
+                parents=args.parents,
+            )
         else:
             msg = "specify at least a user and location"
             raise RuntimeError(msg)

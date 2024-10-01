@@ -3,7 +3,7 @@
 import re
 import subprocess
 import warnings
-from os.path import isdir, isfile
+from os.path import dirname, isdir, isfile
 from shutil import which
 from time import ctime
 from typing import Union
@@ -25,7 +25,7 @@ SETFACL_PATH = which("setfacl")
 GETFACL_PATH = which("getfacl")
 
 
-def set_permission(location: str, user: str, group: Union[str, None] = None, permissions="rx"):
+def set_permission(location: str, user: str, group: Union[str, None] = None, permissions="rx", parents=1):
     """
     Grant a user permission, and add them to a group.
 
@@ -36,6 +36,7 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
             groups grant the user the group's access, and any permissions assigned to the
             user in the group would be removed with the group not on removal from the group.
         permissions (str): Permission string (e.g., "rwx").
+        parents (int): Number of parent directories on which to set read and execute permissions.
     """
     access = _get_accesses()
     defer = _get_config().get("defer", False)
@@ -46,25 +47,40 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
         if not defer and not isdir(path):
             msg = f"location ({location}) does not exist"
             raise RuntimeError(msg)
+    path = path.replace("[\\/]$", "")
     if not group:
         group = user
     message = ""
     if defer or (ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr != b""):
         pending = _get_pendings()
-        updated = _append_row(pending, user, group, path, permissions)
+        updated = _append_row(pending, user, group, path, permissions, parents)
         if not updated.equals(pending):
             updated.to_csv("pending_" + ACCESS_FILE, index=False)
             message = f"added {user} to pending access for {location} in group {group}"
             _log(message)
     else:
+        any_failed = False
+        parent = dirname(path)
+        for _ in range(parents):
+            if parent:
+                res = _set_permissions(user, path, "rx", False)
+                if res.stderr != b"":
+                    any_failed = True
+                    break
+            else:
+                break
+        if any_failed:
+            print(res.stderr)
+            _log(f"failed to set permissions on parents for {user}")
         res = _set_permissions(user, path, permissions)
         if res.stderr == b"":
-            updated = _append_row(access, user, group, path, permissions)
+            updated = _append_row(access, user, group, path, permissions, parents)
             if not updated.equals(access):
                 updated.to_csv(ACCESS_FILE, index=False)
                 message = f"set permissions to {location} for {user} in group {group}"
                 _log(message)
         else:
+            print(res.stderr)
             _log(f"failed to set permissions for {user}")
     if message:
         _git_update(message)
@@ -80,9 +96,13 @@ def _get_pendings():
     return pandas.read_csv("pending_" + ACCESS_FILE, dtype=ACCESS_STRUCTURE)
 
 
-def _set_permissions(user: str, path: str, perms: str):
+def _set_permissions(user: str, path: str, perms: str, recursive=True):
     if SETFACL_PATH:
-        res = subprocess.run([SETFACL_PATH, "-R", "-m", f"d:u:{user}:{perms}", path], check=False, capture_output=True)
+        res = subprocess.run(
+            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"d:u:{user}:{perms}", path],
+            check=False,
+            capture_output=True,
+        )
         if res.stderr != b"":
             warnings.warn(
                 f"failed to set permissions for user {user} on path {path}: {res.stderr.decode('utf-8')}",
@@ -102,13 +122,14 @@ def _set_permissions(user: str, path: str, perms: str):
     raise RuntimeError(msg)
 
 
-def _append_row(current: pandas.DataFrame, user: str, group: str, location: str, permissions: str):
+def _append_row(current: pandas.DataFrame, user: str, group: str, location: str, permissions: str, parents: int):
     new_row = pandas.DataFrame(
         {
             "user": [user],
             "group": [group],
             "location": [location],
             "permissions": [permissions],
+            "parents": [parents],
             "date": [ctime()],
         }
     )
@@ -141,7 +162,9 @@ def check_pending(pull=True, push=False):
         updated = False
         for user, access in pending.groupby("user"):
             if _user_exists(user):
-                for group, location, permissions in zip(access["group"], access["location"], access["permissions"]):
+                for group, location, permissions, parents in zip(
+                    access["group"], access["location"], access["permissions"], access["parents"]
+                ):
                     if pandas.isna(permissions):
                         revoke_permissions(user, location, True)
                         updated = True
@@ -151,7 +174,7 @@ def check_pending(pull=True, push=False):
                         if res.stderr == b"":
                             updated = True
                             current_access = _get_accesses()
-                            added_access = _append_row(current_access, user, group, location, permissions)
+                            added_access = _append_row(current_access, user, group, location, permissions, parents)
                             if not added_access.equals(current_access):
                                 added_access.to_csv(ACCESS_FILE, index=False)
                                 _log(f"set permissions to {location} for {user} in group {group}")
@@ -168,9 +191,13 @@ def _user_exists(user: str):
     return ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr == b""
 
 
-def _revoke(user: str, path: str):
+def _revoke(user: str, path: str, recursive=True):
     if SETFACL_PATH:
-        res = subprocess.run([SETFACL_PATH, "-R", "-x", f"d:u:{user}", path], check=False, capture_output=True)
+        res = subprocess.run(
+            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"d:u:{user}", path],
+            check=False,
+            capture_output=True,
+        )
         failure_message = f"failed to revoke access to {path} from {user}: "
         if res.stderr != b"":
             msg = failure_message + res.stderr.decode("utf-8")
@@ -203,7 +230,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
             path = locations.get(location, location)
         if not from_pending and _get_config().get("defer", False):
             pending = _get_pendings()
-            updated = _append_row(pending, user, user, path if location else "", "")
+            updated = _append_row(pending, user, user, path if location else "", "", 0)
             if not updated.equals(pending):
                 updated.to_csv("pending_" + ACCESS_FILE, index=False)
                 message = f"added {user} to pending removal" + (f" from {location}" if location else "")
@@ -211,11 +238,38 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 _git_update(message)
             return
         if location:
+            alt_access = access[su & (access["location"] != path)]
+            if len(alt_access):
+                # making sure not to revoke access from target parents if access is granted from another location
+                protected_paths: "set[str]" = set(alt_access["location"])
+                alt_parents = (
+                    ([alt_path], n_back) for alt_path, n_back in zip(alt_access["location"], alt_access["parents"])
+                )
+                for alt_base, max_parent in alt_parents:
+                    for _ in range(max_parent):
+                        alt_base[0] = dirname(alt_base[0])
+                        if alt_base[0]:
+                            protected_paths.add(alt_base[0])
+                parents = access[su & (access["location"] == path), "parents"].iloc[0]
+                for _ in range(parents):
+                    parent = dirname(path)
+                    if parent:
+                        if parent not in protected_paths:
+                            _revoke(user, parent, False)
+                    else:
+                        break
             _revoke(user, path)
             removed = removed & (access["location"] == path)
             _log(f"removed permissions from {user}: they can no longer access {path}")
         else:
-            for path in access["location"][su]:
+            user_access = access[su]
+            for path, parents in zip(user_access["location"], user_access["parents"]):
+                for _ in range(parents):
+                    parent = dirname(path)
+                    if parent:
+                        _revoke(user, parent, False)
+                    else:
+                        break
                 _revoke(user, path)
             _log(f"removed all permissions from {user}")
         group_access = access[~su & (access["group"] == user)]
@@ -276,6 +330,7 @@ def check_access(
         pending = pending[pending["group"] == group]
     if len(access):
         access["actual_permissions"] = "None"
+        access["access_to_parents"] = False
         for check_location in access["location"].unique():
             for current_user, current_perms in _get_current_access(check_location).items():
                 target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
@@ -283,6 +338,17 @@ def check_access(
                     access.loc[
                         (access["location"] == check_location) & (access["user"] == current_user), "actual_permissions"
                     ] = current_perms
+                    has_parent_access = False
+                    for _ in range(target_perms.iloc[0]["parents"]):
+                        parent = dirname(check_location)
+                        if parent:
+                            parent_access = _get_current_access(parent)
+                            has_parent_access = user in parent_access
+                            if has_parent_access:
+                                break
+                    access.loc[
+                        (access["location"] == check_location) & (access["user"] == current_user), "access_to_parents"
+                    ] = has_parent_access
     if verbose:
         if len(access):
             print("current access:\n")

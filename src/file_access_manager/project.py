@@ -11,7 +11,7 @@ from typing import Union
 import pandas
 
 ACCESS_FILE = "access.csv"
-ACCESS_STRUCTURE = {"user": str, "group": str, "location": str, "permissions": str, "date": str}
+ACCESS_STRUCTURE = {"user": str, "group": str, "location": str, "permissions": str, "parents": int, "date": str}
 LOCATIONS_FILE = "locations.json"
 GIT_PATH = which("git")
 
