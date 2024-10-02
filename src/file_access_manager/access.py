@@ -168,8 +168,7 @@ def check_pending(pull=True, push=False):
                     if pandas.isna(permissions):
                         revoke_permissions(user, location, True)
                         updated = True
-                    else:
-                        set_permission(location, user, group, permissions)
+                    elif isdir(location):
                         res = _set_permissions(user, location, permissions)
                         if res.stderr == b"":
                             updated = True
