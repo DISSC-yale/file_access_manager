@@ -99,7 +99,7 @@ def _get_pendings():
 def _set_permissions(user: str, path: str, perms: str, recursive=True):
     if SETFACL_PATH:
         res = subprocess.run(
-            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"d:u:{user}:{perms}", path],
+            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"u:{user}:{perms}", path],
             check=False,
             capture_output=True,
         )
@@ -193,7 +193,7 @@ def _user_exists(user: str):
 def _revoke(user: str, path: str, recursive=True):
     if SETFACL_PATH:
         res = subprocess.run(
-            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"d:u:{user}", path],
+            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"u:{user}", path],
             check=False,
             capture_output=True,
         )
