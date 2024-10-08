@@ -116,7 +116,7 @@ def _set_permissions(user: str, path: str, perms: str, recursive=True):
                     if user not in set_perms
                     else f"set permissions do not match ({perms} versus {set_perms[user]})"
                 )
-                raise RuntimeError(msg)
+                warnings.warn(msg, stacklevel=2)
         return res
     msg = "`setfacl` command not found"
     raise RuntimeError(msg)
@@ -169,14 +169,13 @@ def check_pending(pull=True, push=False):
                         revoke_permissions(user, location, True)
                         updated = True
                     elif isdir(location):
-                        res = _set_permissions(user, location, permissions)
-                        if res.stderr == b"":
-                            updated = True
-                            current_access = _get_accesses()
-                            added_access = _append_row(current_access, user, group, location, permissions, parents)
-                            if not added_access.equals(current_access):
-                                added_access.to_csv(ACCESS_FILE, index=False)
-                                _log(f"set permissions to {location} for {user} in group {group}")
+                        _set_permissions(user, location, permissions)
+                        updated = True
+                        current_access = _get_accesses()
+                        added_access = _append_row(current_access, user, group, location, permissions, parents)
+                        if not added_access.equals(current_access):
+                            added_access.to_csv(ACCESS_FILE, index=False)
+                            _log(f"set permissions to {location} for {user} in group {group}")
                     if updated:
                         pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
         if updated:
@@ -301,7 +300,11 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
 
 
 def check_access(
-    user: "Union[str, None]" = None, location: "Union[str, None]" = None, group: "Union[str, None]" = None, verbose=True
+    user: "Union[str, None]" = None,
+    location: "Union[str, None]" = None,
+    group: "Union[str, None]" = None,
+    reapply=True,
+    verbose=True,
 ) -> "tuple[pandas.DataFrame, pandas.DataFrame]":
     """
     List and confirm access for a given user, location, and/or group, or all current and pending access.
@@ -310,6 +313,7 @@ def check_access(
         user (str): User to check access for.
         location (str): Location to check access for.
         group (str): Group to check access for.
+        reapply (bool): If `False`, will attempt to set all permissions check checking.
         verbose (bool): If `False`, will not print subset access.
 
     Returns:
@@ -334,6 +338,8 @@ def check_access(
         for check_location in access["location"].unique():
             for current_user, current_perms in _get_current_access(check_location).items():
                 target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
+                if reapply:
+                    _set_permissions(user, location, target_perms)
                 if len(target_perms):
                     access.loc[
                         (access["location"] == check_location) & (access["user"] == current_user), "actual_permissions"

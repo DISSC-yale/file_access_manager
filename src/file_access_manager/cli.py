@@ -98,10 +98,11 @@ def main():
         parser.add_argument("user", nargs="?", help="name of a user to check access for")
         parser.add_argument("-l", "--location", dest="location", help="name or path of a location to check access to")
         parser.add_argument("-g", "--group", dest="group", help="name of a group to check access for")
-        if len(sys.argv) == 2:
-            sys.argv.append("--help")
+        parser.add_argument(
+            "-a", "--reapply", dest="reapply", default=True, help="whether permissions should be applied during check"
+        )
         args = parser.parse_args(sys.argv[2:])
-        check_access(args.user, args.location, args.group)
+        check_access(args.user, args.location, args.group, args.reapply)
     else:
         parser = argparse.ArgumentParser("manage-access", description="Manage access.")
         parser.add_argument("location", nargs="?", help="path, or name of a location")
