@@ -249,14 +249,15 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                         alt_base[0] = dirname(alt_base[0])
                         if alt_base[0]:
                             protected_paths.add(alt_base[0])
-                parents = access[su & (access["location"] == path), "parents"].iloc[0]
-                for _ in range(parents):
-                    parent = dirname(path)
-                    if parent:
-                        if parent not in protected_paths:
-                            _revoke(user, parent, False)
-                    else:
-                        break
+                parents = access.loc[su & (access["location"] == path), "parents"]
+                if len(parents) == 1:
+                    for _ in range(parents.iloc[0]):
+                        parent = dirname(path)
+                        if parent:
+                            if parent not in protected_paths:
+                                _revoke(user, parent, False)
+                        else:
+                            break
             _revoke(user, path)
             removed = removed & (access["location"] == path)
             _log(f"removed permissions from {user}: they can no longer access {path}")
