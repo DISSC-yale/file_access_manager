@@ -339,7 +339,7 @@ def check_access(
             for current_user, current_perms in _get_current_access(check_location).items():
                 target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
                 if reapply:
-                    _set_permissions(user, location, target_perms)
+                    _set_permissions(current_user, check_location, target_perms)
                 if len(target_perms):
                     access.loc[
                         (access["location"] == check_location) & (access["user"] == current_user), "actual_permissions"
