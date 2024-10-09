@@ -192,7 +192,7 @@ def _user_exists(user: str):
 def _revoke(user: str, path: str, recursive=True):
     if SETFACL_PATH:
         res = subprocess.run(
-            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"u:{user}", path],
+            [SETFACL_PATH, *(["-R", "-x"] if recursive else ["-x"]), f"u:{user}", path],
             check=False,
             capture_output=True,
         )
@@ -347,17 +347,17 @@ def check_access(
                     access.loc[
                         (access["location"] == check_location) & (access["user"] == current_user), "actual_permissions"
                     ] = current_perms
-                    if reapply and not _perms_match(current_perms, target_perms):
-                        res = _set_permissions(current_user, check_location, target_perms)
+                    if reapply:
+                        res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
                         if res.stderr != b"":
                             current_perms = target_perms
                     has_parent_access = False
                     for _ in range(target_perms.iloc[0]["parents"]):
                         parent = dirname(check_location)
                         if parent:
+                            if reapply:
+                                _set_permissions(current_user, parent, "rx", False)
                             parent_access = _get_current_access(parent)
-                            if reapply and not _perms_match(current_perms, "rx"):
-                                _set_permissions(current_user, check_location, target_perms)
                             has_parent_access = current_user in parent_access
                             if has_parent_access:
                                 break
