@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="index.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.6.1">coverage.py v7.6.1</a>,
-            created at 2024-09-28 05:11 -0400
+            created at 2024-10-09 14:07 -0400
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -128,7 +128,7 @@
     <p class="run"><span class="n"><a id="t44" href="#t44">44</a></span><span class="t">        <span class="nam">pending</span> <span class="op">=</span> <span class="nam">pandas</span><span class="op">.</span><span class="nam">read_csv</span><span class="op">(</span><span class="str">"pending_access.csv"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t45" href="#t45">45</a></span><span class="t">        <span class="key">assert</span> <span class="nam">pending</span><span class="op">.</span><span class="nam">iloc</span><span class="op">[</span><span class="num">0</span><span class="op">]</span><span class="op">.</span><span class="nam">to_list</span><span class="op">(</span><span class="op">)</span><span class="op">[</span><span class="op">:</span><span class="num">4</span><span class="op">]</span> <span class="op">==</span> <span class="op">[</span><span class="str">"user_name"</span><span class="op">,</span> <span class="str">"group_name"</span><span class="op">,</span> <span class="nam">test_dir</span><span class="op">,</span> <span class="str">"rx"</span><span class="op">]</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t46" href="#t46">46</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t47" href="#t47">47</a></span><span class="t">        <span class="nam">_</span><span class="op">,</span> <span class="nam">pending_subset</span> <span class="op">=</span> <span class="nam">file_access_manager</span><span class="op">.</span><span class="nam">check_access</span><span class="op">(</span><span class="str">"user_name"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t47" href="#t47">47</a></span><span class="t">        <span class="nam">_</span><span class="op">,</span> <span class="nam">pending_subset</span> <span class="op">=</span> <span class="nam">file_access_manager</span><span class="op">.</span><span class="nam">check_access</span><span class="op">(</span><span class="str">"user_name"</span><span class="op">,</span> <span class="nam">pull</span><span class="op">=</span><span class="key">False</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t48" href="#t48">48</a></span><span class="t">        <span class="key">assert</span> <span class="nam">all</span><span class="op">(</span><span class="nam">pending</span> <span class="op">==</span> <span class="nam">pending_subset</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t49" href="#t49">49</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t50" href="#t50">50</a></span><span class="t">        <span class="nam">file_access_manager</span><span class="op">.</span><span class="nam">revoke_permissions</span><span class="op">(</span><span class="str">"user_name"</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -207,7 +207,7 @@
             <a class="nav" href="index.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.6.1">coverage.py v7.6.1</a>,
-            created at 2024-09-28 05:11 -0400
+            created at 2024-10-09 14:07 -0400
         </p>
     </div>
 </footer>

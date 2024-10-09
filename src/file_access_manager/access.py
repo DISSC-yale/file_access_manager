@@ -303,6 +303,7 @@ def check_access(
     user: "Union[str, None]" = None,
     location: "Union[str, None]" = None,
     group: "Union[str, None]" = None,
+    pull=True,
     reapply=True,
     verbose=True,
 ) -> "tuple[pandas.DataFrame, pandas.DataFrame]":
@@ -313,12 +314,16 @@ def check_access(
         user (str): User to check access for.
         location (str): Location to check access for.
         group (str): Group to check access for.
+        pull (bool): If `False`, will not pull the remote before checking access.
         reapply (bool): If `False`, will attempt to set all permissions check checking.
         verbose (bool): If `False`, will not print subset access.
 
     Returns:
         A tuple containing [0] current and [1] pending access.
     """
+    if pull and GIT_PATH and isdir(".git"):
+        if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).stderr != b"":
+            warnings.warn("failed to pull before checking pending", stacklevel=2)
     access = _get_accesses()
     pending = _get_pendings()
     if location:
@@ -338,17 +343,21 @@ def check_access(
         for check_location in access["location"].unique():
             for current_user, current_perms in _get_current_access(check_location).items():
                 target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
-                if reapply:
-                    _set_permissions(current_user, check_location, target_perms)
                 if len(target_perms):
                     access.loc[
                         (access["location"] == check_location) & (access["user"] == current_user), "actual_permissions"
                     ] = current_perms
+                    if reapply and not _perms_match(current_perms, target_perms):
+                        res = _set_permissions(current_user, check_location, target_perms)
+                        if res.stderr != b"":
+                            current_perms = target_perms
                     has_parent_access = False
                     for _ in range(target_perms.iloc[0]["parents"]):
                         parent = dirname(check_location)
                         if parent:
                             parent_access = _get_current_access(parent)
+                            if reapply and not _perms_match(current_perms, "rx"):
+                                _set_permissions(current_user, check_location, target_perms)
                             has_parent_access = current_user in parent_access
                             if has_parent_access:
                                 break

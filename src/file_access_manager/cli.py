@@ -79,18 +79,17 @@ def main():
             "manage-access pending", description="Check pending users, and apply permissions if they now exist."
         )
         parser.add_argument(
-            "-i", "--pull", dest="pull", action="store_true", default=True, help="git pull before checking pending"
+            "-i", "--no-pull", dest="pull", action="store_true", help="git pull before checking pending"
         )
         parser.add_argument(
             "-o",
             "--push",
             dest="push",
             action="store_true",
-            default=False,
             help="git commit and push after applying pending",
         )
         args = parser.parse_args(sys.argv[2:])
-        check_pending(args.pull, args.push)
+        check_pending(~args.pull, args.push)
     elif possible_function == "check":
         parser = argparse.ArgumentParser(
             "manage-access check", description="Check pending users, and apply permissions if they now exist."
@@ -99,10 +98,17 @@ def main():
         parser.add_argument("-l", "--location", dest="location", help="name or path of a location to check access to")
         parser.add_argument("-g", "--group", dest="group", help="name of a group to check access for")
         parser.add_argument(
-            "-a", "--reapply", dest="reapply", default=True, help="whether permissions should be applied during check"
+            "-p",
+            "--no-pull",
+            dest="pull",
+            action="store_true",
+            help="disable pull from remote before checking access",
+        )
+        parser.add_argument(
+            "-a", "--no-reapply", dest="reapply", action="store_true", help="disable application during check"
         )
         args = parser.parse_args(sys.argv[2:])
-        check_access(args.user, args.location, args.group, args.reapply)
+        check_access(args.user, args.location, args.group, ~args.pull, ~args.reapply)
     else:
         parser = argparse.ArgumentParser("manage-access", description="Manage access.")
         parser.add_argument("location", nargs="?", help="path, or name of a location")

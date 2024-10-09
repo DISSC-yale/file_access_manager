@@ -44,7 +44,7 @@ def test_functions():
         pending = pandas.read_csv("pending_access.csv")
         assert pending.iloc[0].to_list()[:4] == ["user_name", "group_name", test_dir, "rx"]
 
-        _, pending_subset = file_access_manager.check_access("user_name")
+        _, pending_subset = file_access_manager.check_access("user_name", pull=False)
         assert all(pending == pending_subset)
 
         file_access_manager.revoke_permissions("user_name")
