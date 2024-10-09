@@ -349,7 +349,7 @@ def check_access(
                         parent = dirname(check_location)
                         if parent:
                             parent_access = _get_current_access(parent)
-                            has_parent_access = user in parent_access
+                            has_parent_access = current_user in parent_access
                             if has_parent_access:
                                 break
                     access.loc[
@@ -369,7 +369,7 @@ def check_access(
 
 def _get_current_access(location: str):
     if GETFACL_PATH:
-        current = subprocess.run([GETFACL_PATH, "-dc", location], check=False, capture_output=True)
+        current = subprocess.run([GETFACL_PATH, "-ac", location], check=False, capture_output=True)
         if current.stdout == b"" and current.stderr != b"":
             msg = f"failed to check current access: {current.stderr.decode('utf-8')}"
             raise RuntimeError(msg)
