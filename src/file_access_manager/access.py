@@ -223,12 +223,13 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
     access = _get_accesses()
     removed = su = access["user"] == user
     if any(su):
+        path = ""
         if location:
             locations = _get_locations()
             path = locations.get(location, location)
         if not from_pending and _get_config().get("defer", False):
             pending = _get_pendings()
-            updated = _append_row(pending, user, user, path if location else "", "", 0)
+            updated = _append_row(pending, user, user, path, "", 0)
             if not updated.equals(pending):
                 updated.to_csv("pending_" + ACCESS_FILE, index=False)
                 message = f"added {user} to pending removal" + (f" from {location}" if location else "")

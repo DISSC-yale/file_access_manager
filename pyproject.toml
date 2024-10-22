@@ -76,8 +76,8 @@ dependencies = [
   "mkdocs-material",
 ]
 [tool.hatch.envs.docs.scripts]
-build = "mkdocs build --clean --strict"
-serve = "mkdocs serve --dev-addr localhost:8000 --clean"
+build = "sh docs_source/build_function_docs.sh && mkdocs build --clean --strict"
+serve = "sh docs_source/build_function_docs.sh && mkdocs serve --dev-addr localhost:8000 --clean"
 
 [[tool.hatch.envs.all.matrix]]
 python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
