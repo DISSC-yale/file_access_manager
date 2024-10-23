@@ -342,29 +342,32 @@ def check_access(
         access["actual_permissions"] = "None"
         access["access_to_parents"] = False
         for check_location in access["location"].unique():
-            for current_user, current_perms in _get_current_access(check_location).items():
-                target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
-                if len(target_perms):
-                    access.loc[
-                        (access["location"] == check_location) & (access["user"] == current_user), "actual_permissions"
-                    ] = current_perms
-                    if reapply:
-                        res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
-                        if res.stderr != b"":
-                            current_perms = target_perms
-                    has_parent_access = False
-                    for _ in range(target_perms.iloc[0]["parents"]):
-                        parent = dirname(check_location)
-                        if parent:
-                            if reapply:
-                                _set_permissions(current_user, parent, "rx", False)
-                            parent_access = _get_current_access(parent)
-                            has_parent_access = current_user in parent_access
-                            if has_parent_access:
-                                break
-                    access.loc[
-                        (access["location"] == check_location) & (access["user"] == current_user), "access_to_parents"
-                    ] = has_parent_access
+            if isdir(check_location):
+                for current_user, current_perms in _get_current_access(check_location).items():
+                    target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
+                    if len(target_perms):
+                        access.loc[
+                            (access["location"] == check_location) & (access["user"] == current_user),
+                            "actual_permissions",
+                        ] = current_perms
+                        if reapply:
+                            res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
+                            if res.stderr != b"":
+                                current_perms = target_perms
+                        has_parent_access = False
+                        for _ in range(target_perms.iloc[0]["parents"]):
+                            parent = dirname(check_location)
+                            if parent:
+                                if reapply:
+                                    _set_permissions(current_user, parent, "rx", False)
+                                parent_access = _get_current_access(parent)
+                                has_parent_access = current_user in parent_access
+                                if has_parent_access:
+                                    break
+                        access.loc[
+                            (access["location"] == check_location) & (access["user"] == current_user),
+                            "access_to_parents",
+                        ] = has_parent_access
     if verbose:
         if len(access):
             print("current access:\n")
