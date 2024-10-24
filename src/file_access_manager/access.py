@@ -59,19 +59,7 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
             message = f"added {user} to pending access for {location} in group {group}"
             _log(message)
     else:
-        any_failed = False
-        for _ in range(parents):
-            parent = dirname(path)
-            if parent:
-                res = _set_permissions(user, parent, "rx", False)
-                if res.stderr != b"":
-                    any_failed = True
-                    break
-            else:
-                break
-        if any_failed:
-            print(res.stderr)
-            _log(f"failed to set permissions on parents for {user}")
+        _apply_to_parent(user, path, parents)
         res = _set_permissions(user, path, permissions)
         if res.stderr == b"":
             updated = _append_row(access, user, group, path, permissions, parents)
@@ -122,6 +110,24 @@ def _set_permissions(user: str, path: str, perms: str, recursive=True):
     raise RuntimeError(msg)
 
 
+def _apply_to_parent(user: str, path: str, parents: int):
+    failed = False
+    parent = path
+    for _ in range(parents):
+        parent = dirname(parent)
+        if parent:
+            res = _set_permissions(user, parent, "rx", False)
+            failed = res.stderr != b"" or not user in _get_current_access(parent)
+            if failed:
+                break
+        else:
+            break
+    if failed:
+        print(res.stderr)
+        _log(f"failed to set permissions on parents for {user}")
+    return not failed
+
+
 def _append_row(current: pandas.DataFrame, user: str, group: str, location: str, permissions: str, parents: int):
     new_row = pandas.DataFrame(
         {
@@ -170,12 +176,7 @@ def check_pending(pull=True, push=False):
                         updated = True
                     elif isdir(location):
                         _set_permissions(user, location, permissions)
-                        for _ in range(parents):
-                            parent = dirname(location)
-                            if parent:
-                                _set_permissions(location, parent, "rx", False)
-                            else:
-                                break
+                        _apply_to_parent(user, location, parents)
                         updated = True
                         current_access = _get_accesses()
                         added_access = _append_row(current_access, user, group, location, permissions, parents)
@@ -257,21 +258,16 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                             protected_paths.add(alt_base[0])
                 parents = access.loc[su & (access["location"] == path), "parents"]
                 if len(parents) == 1:
-                    for _ in range(parents.iloc[0]):
-                        parent = dirname(path)
-                        if parent:
-                            if parent not in protected_paths:
-                                _revoke(user, parent, False)
-                        else:
-                            break
+                    _apply_to_parent(user, path, parents)
             _revoke(user, path)
             removed = removed & (access["location"] == path)
             _log(f"removed permissions from {user}: they can no longer access {path}")
         else:
             user_access = access[su]
             for path, parents in zip(user_access["location"], user_access["parents"]):
+                parent = path
                 for _ in range(parents):
-                    parent = dirname(path)
+                    parent = dirname(parent)
                     if parent:
                         _revoke(user, parent, False)
                     else:
@@ -360,20 +356,10 @@ def check_access(
                             res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
                             if res.stderr != b"":
                                 current_perms = target_perms
-                        has_parent_access = False
-                        for _ in range(target_perms.iloc[0]["parents"]):
-                            parent = dirname(check_location)
-                            if parent:
-                                if reapply:
-                                    _set_permissions(current_user, parent, "rx", False)
-                                parent_access = _get_current_access(parent)
-                                has_parent_access = current_user in parent_access
-                            else:
-                                break
                         access.loc[
                             (access["location"] == check_location) & (access["user"] == current_user),
                             "access_to_parents",
-                        ] = has_parent_access
+                        ] = _apply_to_parent(current_user, check_location, target_perms.iloc[0]["parents"])
     if verbose:
         if len(access):
             print("current access:\n")
