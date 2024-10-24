@@ -60,10 +60,10 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
             _log(message)
     else:
         any_failed = False
-        parent = dirname(path)
         for _ in range(parents):
+            parent = dirname(path)
             if parent:
-                res = _set_permissions(user, path, "rx", False)
+                res = _set_permissions(user, parent, "rx", False)
                 if res.stderr != b"":
                     any_failed = True
                     break
@@ -166,10 +166,16 @@ def check_pending(pull=True, push=False):
                     access["group"], access["location"], access["permissions"], access["parents"]
                 ):
                     if pandas.isna(permissions):
-                        revoke_permissions(user, location, True)
+                        revoke_permissions(user, "" if pandas.isna(location) else location, True)
                         updated = True
                     elif isdir(location):
                         _set_permissions(user, location, permissions)
+                        for _ in range(parents):
+                            parent = dirname(location)
+                            if parent:
+                                _set_permissions(location, parent, "rx", False)
+                            else:
+                                break
                         updated = True
                         current_access = _get_accesses()
                         added_access = _append_row(current_access, user, group, location, permissions, parents)
@@ -362,8 +368,8 @@ def check_access(
                                     _set_permissions(current_user, parent, "rx", False)
                                 parent_access = _get_current_access(parent)
                                 has_parent_access = current_user in parent_access
-                                if has_parent_access:
-                                    break
+                            else:
+                                break
                         access.loc[
                             (access["location"] == check_location) & (access["user"] == current_user),
                             "access_to_parents",

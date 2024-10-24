@@ -81,6 +81,7 @@ def init_manager_project(
     Path.touch(Path("log.txt"), exist_ok=True)
     if not isfile(ACCESS_FILE):
         pandas.DataFrame(columns=list(ACCESS_STRUCTURE.keys())).to_csv(ACCESS_FILE, index=False)
+    if not isfile("pending_" + ACCESS_FILE):
         pandas.DataFrame(columns=list(ACCESS_STRUCTURE.keys())).to_csv("pending_" + ACCESS_FILE, index=False)
     if not isfile("README.md"):
         with open("README.md", "w", encoding="utf-8") as opened:

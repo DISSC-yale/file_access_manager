@@ -32,15 +32,15 @@ usage: manage-access pending [-h] [-i] [-o]
 Check pending users, and apply permissions if they now exist.
 
 options:
-  -h, --help  show this help message and exit
-  -i, --pull  git pull before checking pending
-  -o, --push  git commit and push after applying pending
+  -h, --help     show this help message and exit
+  -i, --no-pull  git pull before checking pending
+  -o, --push     git commit and push after applying pending
 ```
 
 ### check
 
 ```sh
-usage: manage-access check [-h] [-l LOCATION] [-g GROUP] [user]
+usage: manage-access check [-h] [-l LOCATION] [-g GROUP] [-p] [-a] [user]
 
 Check pending users, and apply permissions if they now exist.
 
@@ -53,4 +53,6 @@ options:
                         name or path of a location to check access to
   -g GROUP, --group GROUP
                         name of a group to check access for
+  -p, --no-pull         disable pull from remote before checking access
+  -a, --no-reapply      disable application during check
 ```
