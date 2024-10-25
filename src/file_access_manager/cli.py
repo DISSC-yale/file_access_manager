@@ -108,7 +108,7 @@ def main():
             "-a", "--no-reapply", dest="reapply", action="store_true", help="disable application during check"
         )
         args = parser.parse_args(sys.argv[2:])
-        check_access(args.user, args.location, args.group, ~args.pull, ~args.reapply)
+        check_access(args.user, args.location, args.group, not args.pull, not args.reapply)
     else:
         parser = argparse.ArgumentParser("manage-access", description="Manage access.")
         parser.add_argument("location", nargs="?", help="path, or name of a location")
