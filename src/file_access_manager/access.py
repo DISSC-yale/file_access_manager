@@ -345,17 +345,20 @@ def check_access(
         access["access_to_parents"] = False
         for check_location in access["location"].unique():
             if isdir(check_location):
-                for current_user, current_perms in _get_current_access(check_location).items():
-                    target_perms = access[(access["location"] == check_location) & (access["user"] == current_user)]
+                target_access = access[access["location"] == check_location]
+                current_access = _get_current_access(check_location)
+                for current_user in target_access["user"].unique():
+                    target_perms = target_access[target_access["user"] == current_user]
                     if len(target_perms):
+                        current_perms = current_access.get(current_user)
+                        if reapply:
+                            res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
+                            if res.stderr == b"":
+                                current_perms = target_perms.iloc[0]["permissions"]
                         access.loc[
                             (access["location"] == check_location) & (access["user"] == current_user),
                             "actual_permissions",
                         ] = current_perms
-                        if reapply:
-                            res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
-                            if res.stderr != b"":
-                                current_perms = target_perms
                         access.loc[
                             (access["location"] == check_location) & (access["user"] == current_user),
                             "access_to_parents",
