@@ -2,22 +2,26 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://DISSC-yale.github.io/file_access_manager/</loc>
-         <lastmod>2024-10-25</lastmod>
+         <lastmod>2024-12-20</lastmod>
+    </url>
+    <url>
+         <loc>https://DISSC-yale.github.io/file_access_manager/Automation/</loc>
+         <lastmod>2024-12-20</lastmod>
     </url>
     <url>
          <loc>https://DISSC-yale.github.io/file_access_manager/Projects/</loc>
-         <lastmod>2024-10-25</lastmod>
+         <lastmod>2024-12-20</lastmod>
     </url>
     <url>
          <loc>https://DISSC-yale.github.io/file_access_manager/functions/Access/</loc>
-         <lastmod>2024-10-25</lastmod>
+         <lastmod>2024-12-20</lastmod>
     </url>
     <url>
          <loc>https://DISSC-yale.github.io/file_access_manager/functions/Locations/</loc>
-         <lastmod>2024-10-25</lastmod>
+         <lastmod>2024-12-20</lastmod>
     </url>
     <url>
          <loc>https://DISSC-yale.github.io/file_access_manager/functions/Projects/</loc>
-         <lastmod>2024-10-25</lastmod>
+         <lastmod>2024-12-20</lastmod>
     </url>
 </urlset>

@@ -47,6 +47,7 @@ markdown_extensions:
 nav:
   - Home: README.md
   - Projects: Projects.md
+  - Automation: Automation.md
   - Functions:
       - functions/Projects.md
       - functions/Locations.md
