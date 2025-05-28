@@ -79,7 +79,7 @@ def main():
             "manage-access pending", description="Check pending users, and apply permissions if they now exist."
         )
         parser.add_argument(
-            "-i", "--no-pull", dest="pull", action="store_true", help="git pull before checking pending"
+            "-i", "--no-pull", dest="pull", action="store_true", help="do not git pull before checking pending"
         )
         parser.add_argument(
             "-o",
@@ -88,8 +88,15 @@ def main():
             action="store_true",
             help="git commit and push after applying pending",
         )
+        parser.add_argument(
+            "-u",
+            "--no-update",
+            dest="update",
+            action="store_true",
+            help="do not update pending and access files",
+        )
         args = parser.parse_args(sys.argv[2:])
-        check_pending(~args.pull, args.push)
+        check_pending(~args.pull, args.push, ~args.update)
     elif possible_function == "check":
         parser = argparse.ArgumentParser(
             "manage-access check", description="Check pending users, and apply permissions if they now exist."

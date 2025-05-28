@@ -151,13 +151,14 @@ def _log(message: str):
         opened.write(f"{ctime()}: {message}\n")
 
 
-def check_pending(pull=True, push=False):
+def check_pending(pull=True, push=False, update=True):
     """
     Check any users pending access, and apply permissions if they exist.
 
     Args:
         pull (bool): If `False`, will not pull the remote before checking pending.
         push (bool): If `True`, will push any changes made (bypassing auto_push option).
+        update (bool): If `False`, will not change pending or access files.
     """
     if pull and GIT_PATH and isdir(".git"):
         if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).stderr != b"":
@@ -180,12 +181,12 @@ def check_pending(pull=True, push=False):
                         updated = True
                         current_access = _get_accesses()
                         added_access = _append_row(current_access, user, group, location, permissions, parents)
-                        if not added_access.equals(current_access):
+                        if update and not added_access.equals(current_access):
                             added_access.to_csv(ACCESS_FILE, index=False)
                             _log(f"set permissions to {location} for {user} in group {group}")
                     if updated:
                         pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
-        if updated:
+        if update and updated:
             pending.to_csv(pending_file, index=False)
             _git_update("processed pending permissions", push)
     else:

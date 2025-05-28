@@ -54,6 +54,7 @@ In this case, it might be useful to have a secondary script that only applies ac
 
 cd /path/to/access_record
 
+manage-access pending --no-pull --no-update
 manage-access check --no-pull
 ```
 
@@ -109,6 +110,7 @@ module load python/3.10
 
 cd /data/admin
 
+manage-access pending --no-pull --no-update
 manage-access check --no-pull
 ```
 
