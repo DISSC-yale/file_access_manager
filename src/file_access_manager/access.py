@@ -206,16 +206,14 @@ def _revoke(user: str, path: str, recursive=True):
         )
         failure_message = f"failed to revoke access to {path} from {user}: "
         if res.stderr != b"":
-            msg = failure_message + res.stderr.decode("utf-8")
-            raise RuntimeError(msg)
+            warnings.warn(failure_message + res.stderr.decode("utf-8"), stacklevel=2)
         else:
             set_perms = _get_current_access(path)
             if user in set_perms:
-                msg = failure_message + "still appears in access list"
-                raise RuntimeError(msg)
-    else:
-        msg = "`setfacl` command not found"
-        raise RuntimeError(msg)
+                warnings.warn(failure_message + "still appears in access list", stacklevel=2)
+        return res
+    msg = "`setfacl` command not found"
+    raise RuntimeError(msg)
 
 
 def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pending=False):
@@ -232,6 +230,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
     removed = su = access["user"] == user
     if any(su):
         path = ""
+        any_fail = False
         if location:
             locations = _get_locations()
             path = locations.get(location, location)
@@ -260,21 +259,33 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 parents = access.loc[su & (access["location"] == path), "parents"]
                 if len(parents) == 1:
                     _apply_to_parent(user, path, parents.iloc[0])
-            _revoke(user, path)
+            res = _revoke(user, path)
             removed = removed & (access["location"] == path)
-            _log(f"removed permissions from {user}: they can no longer access {path}")
+            if res.stderr == b"":
+                _log(f"removed permissions from {user}: they can no longer access {path}")
+            else:
+                any_fail = True
         else:
             user_access = access[su]
+            any_parent_fail = False
             for path, parents in zip(user_access["location"], user_access["parents"]):
                 parent = path
                 for _ in range(parents):
                     parent = dirname(parent)
                     if parent:
-                        _revoke(user, parent, False)
+                        res = _revoke(user, parent, False)
+                        if res.stderr != b"":
+                            any_parent_fail = True
                     else:
                         break
-                _revoke(user, path)
-            _log(f"removed all permissions from {user}")
+                res = _revoke(user, path)
+                if res.stderr != b"":
+                    any_parent_fail = True
+            if not any_parent_fail:
+                _log(f"removed all permissions from {user}")
+            else:
+                access.loc[su, "permissions"] = "---"
+                any_fail = True
         group_access = access[~su & (access["group"] == user)]
         if len(group_access):
             removed = removed | (access["group"] == user)
@@ -282,17 +293,31 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 group_access = group_access[group_access["location"] == path]
                 if len(group_access):
                     for sub_user in group_access["user"]:
-                        _revoke(sub_user, path)
-                        _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
+                        res = _revoke(sub_user, path)
+                        if res.stderr == b"":
+                            _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
+                        else:
+                            any_fail = True
                     removed = removed & (access["location"] == path)
             else:
                 for sub_user, path in zip(group_access["user"], group_access["location"]):
-                    _revoke(sub_user, path)
-                    _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
-        access[~removed].to_csv(ACCESS_FILE, index=False)
-        _git_update(
-            f"removed access to {location} ({path}) from {user}" if location else f"remove all access from {user}"
-        )
+                    res = _revoke(sub_user, path)
+                    if res.stderr == b"":
+                        _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
+                    else:
+                        any_fail = True
+        if any_fail:
+            access.loc[removed, "permissions"] = "---"
+            _git_update(
+                "failed to remove "
+                + (f"access to {location} ({path}) from {user}" if location else f"all access from {user}")
+                + ", so setting blank permissions temporarily"
+            )
+        else:
+            access[~removed].to_csv(ACCESS_FILE, index=False)
+            _git_update(
+                f"removed access to {location} ({path}) from {user}" if location else f"removed all access from {user}"
+            )
     elif not from_pending:
         pending = _get_pendings()
         su = pending["user"] == user
