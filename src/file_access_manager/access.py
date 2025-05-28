@@ -258,7 +258,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                             protected_paths.add(alt_base[0])
                 parents = access.loc[su & (access["location"] == path), "parents"]
                 if len(parents) == 1:
-                    _apply_to_parent(user, path, parents)
+                    _apply_to_parent(user, path, parents.iloc[0])
             _revoke(user, path)
             removed = removed & (access["location"] == path)
             _log(f"removed permissions from {user}: they can no longer access {path}")
