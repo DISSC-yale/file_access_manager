@@ -27,14 +27,15 @@ options:
 ### pending
 
 ```sh
-usage: manage-access pending [-h] [-i] [-o]
+usage: manage-access pending [-h] [-i] [-o] [-u]
 
 Check pending users, and apply permissions if they now exist.
 
 options:
-  -h, --help     show this help message and exit
-  -i, --no-pull  git pull before checking pending
-  -o, --push     git commit and push after applying pending
+  -h, --help       show this help message and exit
+  -i, --no-pull    do not git pull before checking pending
+  -o, --push       git commit and push after applying pending
+  -u, --no-update  do not update pending and access files
 ```
 
 ### check

@@ -290,6 +290,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
         if len(group_access):
             removed = removed | (access["group"] == user)
             if location:
+                removed = removed & (access["location"] == path)
                 group_access = group_access[group_access["location"] == path]
                 if len(group_access):
                     for sub_user in group_access["user"]:
@@ -298,7 +299,6 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                             _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
                         else:
                             any_fail = True
-                    removed = removed & (access["location"] == path)
             else:
                 for sub_user, path in zip(group_access["user"], group_access["location"]):
                     res = _revoke(sub_user, path)
