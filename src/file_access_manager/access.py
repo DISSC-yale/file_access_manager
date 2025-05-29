@@ -314,13 +314,14 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                     else:
                         any_fail = True
         if any_fail:
-            access.loc[removed, "permissions"] = "---"
-            access.to_csv(ACCESS_FILE, index=False)
-            _git_update(
-                "failed to remove "
-                + (f"access to {location} ({path}) from {user}" if location else f"all access from {user}")
-                + ", so setting blank permissions temporarily"
-            )
+            if (access.loc[removed, "permissions"] != "---").any():
+                access.loc[removed, "permissions"] = "---"
+                access.to_csv(ACCESS_FILE, index=False)
+                _git_update(
+                    "failed to remove "
+                    + (f"access to {location} ({path}) from {user}" if location else f"all access from {user}")
+                    + ", so setting blank permissions temporarily"
+                )
         else:
             access[~removed].to_csv(ACCESS_FILE, index=False)
             _git_update(
