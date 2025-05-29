@@ -96,7 +96,7 @@ def main():
             help="do not update pending and access files",
         )
         args = parser.parse_args(sys.argv[2:])
-        check_pending(~args.pull, args.push, ~args.update)
+        check_pending(not args.pull, args.push, not args.update)
     elif possible_function == "check":
         parser = argparse.ArgumentParser(
             "manage-access check", description="Check pending users, and apply permissions if they now exist."

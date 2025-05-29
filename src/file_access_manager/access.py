@@ -117,7 +117,7 @@ def _apply_to_parent(user: str, path: str, parents: int):
         parent = dirname(parent)
         if parent:
             res = _set_permissions(user, parent, "rx", False)
-            failed = res.stderr != b"" or not user in _get_current_access(parent)
+            failed = res.stderr != b"" or user not in _get_current_access(parent)
             if failed:
                 break
         else:
@@ -146,9 +146,12 @@ def _append_row(current: pandas.DataFrame, user: str, group: str, location: str,
     )
 
 
-def _log(message: str):
-    with open("log.txt", "a", encoding="utf-8") as opened:
-        opened.write(f"{ctime()}: {message}\n")
+def _log(message: str, write=True):
+    if write:
+        with open("log.txt", "a", encoding="utf-8") as opened:
+            opened.write(f"{ctime()}: {message}\n")
+    else:
+        print(message)
 
 
 def check_pending(pull=True, push=False, update=True):
@@ -174,7 +177,7 @@ def check_pending(pull=True, push=False, update=True):
                     access["group"], access["location"], access["permissions"], access["parents"]
                 ):
                     if pandas.isna(permissions):
-                        updated = revoke_permissions(user, "" if pandas.isna(location) else location, True)
+                        updated = revoke_permissions(user, "" if pandas.isna(location) else location, True, update)
                         revoke = True
                     elif isdir(location):
                         _set_permissions(user, location, permissions)
@@ -226,7 +229,7 @@ def _revoke(user: str, path: str, recursive=True):
     raise RuntimeError(msg)
 
 
-def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pending=False):
+def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pending=False, active=True):
     """
     Remove access from a user.
 
@@ -235,6 +238,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
         location (str): Location to remove `user`s access from; if not
             specified, access from all locations will be removed.
         from_pending (bool): If `False`, will not also remove the user from pending access.
+        active (bool): If `False`, will attempt removal without changing logs or access.
     """
     access = _get_accesses()
     removed = su = access["user"] == user
@@ -250,8 +254,9 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
             if not updated.equals(pending):
                 updated.to_csv("pending_" + ACCESS_FILE, index=False)
                 message = f"added {user} to pending removal" + (f" from {location}" if location else "")
-                _log(message)
-                _git_update(message)
+                _log(message, active)
+                if active:
+                    _git_update(message)
             return False
         if location:
             parents = access.loc[su & (access["location"] == path), "parents"].max()
@@ -269,7 +274,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
             removed = removed & (access["location"] == path)
             success = _revoke(user, path)
             if success:
-                _log(f"removed permissions from {user}: they can no longer access {path}")
+                _log(f"removed permissions from {user}: they can no longer access {path}", active)
             else:
                 any_fail = True
         else:
@@ -289,7 +294,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 if not success:
                     any_parent_fail = True
             if not any_parent_fail:
-                _log(f"removed all permissions from {user}")
+                _log(f"removed all permissions from {user}", active)
             else:
                 access.loc[su, "permissions"] = "---"
                 any_fail = True
@@ -303,18 +308,24 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                     for sub_user in group_access["user"]:
                         success = _revoke(sub_user, path)
                         if success:
-                            _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
+                            _log(
+                                f"removed permissions from {sub_user}: they can no longer access {path} under {user}",
+                                active,
+                            )
                         else:
                             any_fail = True
             else:
                 for sub_user, path in zip(group_access["user"], group_access["location"]):
                     success = _revoke(sub_user, path)
                     if success:
-                        _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
+                        _log(
+                            f"removed permissions from {sub_user}: they can no longer access {path} under {user}",
+                            active,
+                        )
                     else:
                         any_fail = True
         if any_fail:
-            if (access.loc[removed, "permissions"] != "---").any():
+            if active and (access.loc[removed, "permissions"] != "---").any():
                 access.loc[removed, "permissions"] = "---"
                 access.to_csv(ACCESS_FILE, index=False)
                 _git_update(
@@ -323,12 +334,15 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                     + ", so setting blank permissions temporarily"
                 )
         else:
-            access[~removed].to_csv(ACCESS_FILE, index=False)
-            _git_update(
-                f"removed access to {location} ({path}) from {user}" if location else f"removed all access from {user}"
-            )
+            if active:
+                access[~removed].to_csv(ACCESS_FILE, index=False)
+                _git_update(
+                    f"removed access to {location} ({path}) from {user}"
+                    if location
+                    else f"removed all access from {user}"
+                )
             return True
-    elif not from_pending:
+    elif active and not from_pending:
         pending = _get_pendings()
         su = pending["user"] == user
         if any(su):
