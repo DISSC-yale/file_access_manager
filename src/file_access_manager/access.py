@@ -173,8 +173,7 @@ def check_pending(pull=True, push=False, update=True):
                     access["group"], access["location"], access["permissions"], access["parents"]
                 ):
                     if pandas.isna(permissions):
-                        revoke_permissions(user, "" if pandas.isna(location) else location, True)
-                        updated = True
+                        updated = revoke_permissions(user, "" if pandas.isna(location) else location, True)
                     elif isdir(location):
                         _set_permissions(user, location, permissions)
                         _apply_to_parent(user, location, parents)
@@ -248,7 +247,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 message = f"added {user} to pending removal" + (f" from {location}" if location else "")
                 _log(message)
                 _git_update(message)
-            return
+            return False
         if location:
             parents = access.loc[su & (access["location"] == path), "parents"].max()
             alt_access = access.loc[su & (access["location"] != path), "location"].unique()
@@ -311,6 +310,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                         any_fail = True
         if any_fail:
             access.loc[removed, "permissions"] = "---"
+            access.to_csv(ACCESS_FILE, index=False)
             _git_update(
                 "failed to remove "
                 + (f"access to {location} ({path}) from {user}" if location else f"all access from {user}")
@@ -321,6 +321,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
             _git_update(
                 f"removed access to {location} ({path}) from {user}" if location else f"removed all access from {user}"
             )
+            return True
     elif not from_pending:
         pending = _get_pendings()
         su = pending["user"] == user
@@ -329,6 +330,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
             message = f"removed {user} from pending without setting permissions"
             _log(message)
             _git_update(message)
+    return False
 
 
 def check_access(
