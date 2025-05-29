@@ -167,6 +167,7 @@ def check_pending(pull=True, push=False, update=True):
     if isfile(pending_file):
         pending = _get_pendings()
         updated = False
+        revoke = False
         for user, access in pending.groupby("user"):
             if _user_exists(user):
                 for group, location, permissions, parents in zip(
@@ -174,6 +175,7 @@ def check_pending(pull=True, push=False, update=True):
                 ):
                     if pandas.isna(permissions):
                         updated = revoke_permissions(user, "" if pandas.isna(location) else location, True)
+                        revoke = True
                     elif isdir(location):
                         _set_permissions(user, location, permissions)
                         _apply_to_parent(user, location, parents)
@@ -185,9 +187,12 @@ def check_pending(pull=True, push=False, update=True):
                             _log(f"set permissions to {location} for {user} in group {group}")
                     if updated:
                         pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
-        if update and updated:
-            pending.to_csv(pending_file, index=False)
-            _git_update("processed pending permissions", push)
+        if update:
+            if updated:
+                pending.to_csv(pending_file, index=False)
+                _git_update("processed pending permissions", push)
+            elif revoke and push:
+                _git_update(bypass=True)
     else:
         print("no pending users")
 

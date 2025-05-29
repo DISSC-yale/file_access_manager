@@ -140,10 +140,10 @@ def _get_config():
     return config
 
 
-def _git_update(message: str, bypass=False):
+def _git_update(message: Union[str, None] = None, bypass=False):
     config = _get_config()
     if isdir(".git") and GIT_PATH:
-        if config["auto_commit"] or bypass:
+        if message and (config["auto_commit"] or bypass):
             subprocess.run([GIT_PATH, "add", "-A"], check=False)
             subprocess.run([GIT_PATH, "commit", "-m", message], check=False)
         if config["auto_push"] or bypass:
