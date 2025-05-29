@@ -251,7 +251,7 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
             return
         if location:
             parents = access.loc[su & (access["location"] == path), "parents"].max()
-            alt_access = access[su & (access["location"] != path), "location"].unique()
+            alt_access = access.loc[su & (access["location"] != path), "location"].unique()
             parent_path = dirname(path)
             for _ in range(parents):
                 retain = False
