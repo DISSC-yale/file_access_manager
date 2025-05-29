@@ -198,20 +198,26 @@ def _user_exists(user: str):
 
 
 def _revoke(user: str, path: str, recursive=True):
+    if not recursive:
+        set_perms = _get_current_access(path)
+        if user not in set_perms:
+            return True
     if SETFACL_PATH:
         res = subprocess.run(
             [SETFACL_PATH, *(["-R", "-x"] if recursive else ["-x"]), f"u:{user}", path],
             check=False,
             capture_output=True,
         )
+        success = res.stderr == b""
         failure_message = f"failed to revoke access to {path} from {user}: "
-        if res.stderr != b"":
-            warnings.warn(failure_message + res.stderr.decode("utf-8"), stacklevel=2)
-        else:
+        if success:
             set_perms = _get_current_access(path)
             if user in set_perms:
+                success = False
                 warnings.warn(failure_message + "still appears in access list", stacklevel=2)
-        return res
+        else:
+            warnings.warn(failure_message + res.stderr.decode("utf-8"), stacklevel=2)
+        return success
     msg = "`setfacl` command not found"
     raise RuntimeError(msg)
 
@@ -244,24 +250,21 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 _git_update(message)
             return
         if location:
-            alt_access = access[su & (access["location"] != path)]
-            if len(alt_access):
-                # making sure not to revoke access from target parents if access is granted from another location
-                protected_paths: "set[str]" = set(alt_access["location"])
-                alt_parents = (
-                    ([alt_path], n_back) for alt_path, n_back in zip(alt_access["location"], alt_access["parents"])
-                )
-                for alt_base, max_parent in alt_parents:
-                    for _ in range(max_parent):
-                        alt_base[0] = dirname(alt_base[0])
-                        if alt_base[0]:
-                            protected_paths.add(alt_base[0])
-                parents = access.loc[su & (access["location"] == path), "parents"]
-                if len(parents) == 1:
-                    _apply_to_parent(user, path, parents.iloc[0])
-            res = _revoke(user, path)
+            parents = access.loc[su & (access["location"] == path), "parents"].max()
+            alt_access = access[su & (access["location"] != path), "location"].unique()
+            parent_path = dirname(path)
+            for _ in range(parents):
+                retain = False
+                for alt_path in alt_access:
+                    if parent_path in alt_path:
+                        retain = True
+                        break
+                if not retain and not _revoke(user, parent_path, False):
+                    any_fail = True
+                parent_path = dirname(parent_path)
             removed = removed & (access["location"] == path)
-            if res.stderr == b"":
+            success = _revoke(user, path)
+            if success:
                 _log(f"removed permissions from {user}: they can no longer access {path}")
             else:
                 any_fail = True
@@ -273,13 +276,13 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 for _ in range(parents):
                     parent = dirname(parent)
                     if parent:
-                        res = _revoke(user, parent, False)
-                        if res.stderr != b"":
+                        success = _revoke(user, parent, False)
+                        if not success:
                             any_parent_fail = True
                     else:
                         break
-                res = _revoke(user, path)
-                if res.stderr != b"":
+                success = _revoke(user, path)
+                if not success:
                     any_parent_fail = True
             if not any_parent_fail:
                 _log(f"removed all permissions from {user}")
@@ -294,15 +297,15 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 group_access = group_access[group_access["location"] == path]
                 if len(group_access):
                     for sub_user in group_access["user"]:
-                        res = _revoke(sub_user, path)
-                        if res.stderr == b"":
+                        success = _revoke(sub_user, path)
+                        if success:
                             _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
                         else:
                             any_fail = True
             else:
                 for sub_user, path in zip(group_access["user"], group_access["location"]):
-                    res = _revoke(sub_user, path)
-                    if res.stderr == b"":
+                    success = _revoke(sub_user, path)
+                    if success:
                         _log(f"removed permissions from {sub_user}: they can no longer access {path} under {user}")
                     else:
                         any_fail = True
