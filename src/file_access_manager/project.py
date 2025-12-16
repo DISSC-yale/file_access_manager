@@ -17,14 +17,14 @@ GIT_PATH = which("git")
 
 
 def init_manager_project(
-    base_dir=".",
+    base_dir: str = ".",
     managers: "Union[list[str], None]" = None,
     locations: "Union[dict[str, str], None]" = None,
     git_remote: "Union[str, None]" = None,
-    auto_commit=True,
-    auto_push=False,
-    defer=False,
-    git_branch="main",
+    auto_commit: bool = True,
+    auto_push: bool = False,
+    defer: bool = False,
+    git_branch: str = "main",
 ):
     """
     Initialize a file access management project.
@@ -140,7 +140,7 @@ def _get_config():
     return config
 
 
-def _git_update(message: Union[str, None] = None, bypass=False):
+def _git_update(message: Union[str, None] = None, bypass: bool = False):
     config = _get_config()
     if isdir(".git") and GIT_PATH:
         if message and (config["auto_commit"] or bypass):

@@ -25,7 +25,7 @@ SETFACL_PATH = which("setfacl")
 GETFACL_PATH = which("getfacl")
 
 
-def set_permission(location: str, user: str, group: Union[str, None] = None, permissions="rx", parents=1):
+def set_permission(location: str, user: str, group: Union[str, None] = None, permissions: str = "rx", parents: int = 1):
     """
     Grant a user permission, and add them to a group.
 
@@ -84,7 +84,7 @@ def _get_pendings():
     return pandas.read_csv("pending_" + ACCESS_FILE, dtype=ACCESS_STRUCTURE)
 
 
-def _set_permissions(user: str, path: str, perms: str, recursive=True):
+def _set_permissions(user: str, path: str, perms: str, recursive: bool = False):
     if SETFACL_PATH:
         res = subprocess.run(
             [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"u:{user}:{perms}", path],
@@ -110,7 +110,7 @@ def _set_permissions(user: str, path: str, perms: str, recursive=True):
     raise RuntimeError(msg)
 
 
-def _apply_to_parent(user: str, path: str, parents: int):
+def _apply_to_parent(user: str, path: str, parents: int, update: bool = True):
     failed = False
     parent = path
     for _ in range(parents):
@@ -124,7 +124,8 @@ def _apply_to_parent(user: str, path: str, parents: int):
             break
     if failed:
         print(res.stderr)
-        _log(f"failed to set permissions on parents for {user}")
+        if update:
+            _log(f"failed to set permissions on parents for {user}")
     return not failed
 
 
@@ -146,7 +147,7 @@ def _append_row(current: pandas.DataFrame, user: str, group: str, location: str,
     )
 
 
-def _log(message: str, write=True):
+def _log(message: str, write: bool = True):
     if write:
         with open("log.txt", "a", encoding="utf-8") as opened:
             opened.write(f"{ctime()}: {message}\n")
@@ -154,7 +155,7 @@ def _log(message: str, write=True):
         print(message)
 
 
-def check_pending(pull=True, push=False, update=True):
+def check_pending(pull: bool = True, push: bool = False, update: bool = True):
     """
     Check any users pending access, and apply permissions if they exist.
 
@@ -181,7 +182,7 @@ def check_pending(pull=True, push=False, update=True):
                         revoke = True
                     elif isdir(location):
                         _set_permissions(user, location, permissions)
-                        _apply_to_parent(user, location, parents)
+                        _apply_to_parent(user, location, parents, update)
                         updated = True
                         current_access = _get_accesses()
                         added_access = _append_row(current_access, user, group, location, permissions, parents)
@@ -204,7 +205,7 @@ def _user_exists(user: str):
     return ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr == b""
 
 
-def _revoke(user: str, path: str, recursive=True):
+def _revoke(user: str, path: str, recursive: bool = False):
     if not recursive:
         set_perms = _get_current_access(path)
         if user not in set_perms:
@@ -229,7 +230,7 @@ def _revoke(user: str, path: str, recursive=True):
     raise RuntimeError(msg)
 
 
-def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pending=False, active=True):
+def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pending: bool = False, active: bool = True):
     """
     Remove access from a user.
 
@@ -357,9 +358,9 @@ def check_access(
     user: "Union[str, None]" = None,
     location: "Union[str, None]" = None,
     group: "Union[str, None]" = None,
-    pull=True,
-    reapply=True,
-    verbose=True,
+    pull: bool = True,
+    reapply: bool = True,
+    verbose: bool = True,
 ) -> "tuple[pandas.DataFrame, pandas.DataFrame]":
     """
     List and confirm access for a given user, location, and/or group, or all current and pending access.

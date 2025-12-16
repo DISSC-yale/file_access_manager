@@ -21,6 +21,9 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
@@ -80,10 +83,10 @@ build = "sh docs_source/build_function_docs.sh && mkdocs build --clean --strict"
 serve = "sh docs_source/build_function_docs.sh && mkdocs serve --dev-addr localhost:8000 --clean"
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
+python = ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [[tool.hatch.envs.lint.matrix]]
-python = ["3.10"]
+python = ["3.14"]
 
 [tool.hatch.envs.lint]
 detached = true
