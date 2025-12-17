@@ -84,7 +84,7 @@ def _get_pendings():
     return pandas.read_csv("pending_" + ACCESS_FILE, dtype=ACCESS_STRUCTURE)
 
 
-def _set_permissions(user: str, path: str, perms: str, recursive: bool = False):
+def _set_permissions(user: str, path: str, perms: str, recursive: bool = True):
     if SETFACL_PATH:
         res = subprocess.run(
             [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"u:{user}:{perms}", path],
