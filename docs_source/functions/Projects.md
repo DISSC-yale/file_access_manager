@@ -15,12 +15,10 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -m [MANAGERS ...], --managers [MANAGERS ...]
+  -m, --managers [MANAGERS ...]
                         manager users
-  -r REMOTE, --remote REMOTE
-                        git remote
-  -b BRANCH, --branch BRANCH
-                        git branch
+  -r, --remote REMOTE   git remote
+  -b, --branch BRANCH   git branch
 ```
 
 ### config
@@ -32,10 +30,9 @@ Configure an access manager project.
 
 options:
   -h, --help            show this help message and exit
-  -c AUTO_COMMIT, --auto_commit AUTO_COMMIT
+  -c, --auto_commit AUTO_COMMIT
                         automatically commit access actions
-  -p AUTO_PUSH, --auto_push AUTO_PUSH
+  -p, --auto_push AUTO_PUSH
                         automatically push committed access actions
-  -d DEFER, --defer DEFER
-                        defer access setting to a separate process
+  -d, --defer DEFER     defer access setting to a separate process
 ```

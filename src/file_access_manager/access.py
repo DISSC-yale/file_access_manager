@@ -51,7 +51,7 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
     if not group:
         group = user
     message = ""
-    if defer or (ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr != b""):
+    if defer or not _user_exists(user):
         pending = _get_pendings()
         updated = _append_row(pending, user, group, path, permissions, parents)
         if not updated.equals(pending):
@@ -173,24 +173,32 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
         updated = False
         revoke = False
         for user, access in pending.groupby("user"):
-            if _user_exists(user):
-                for group, location, permissions, parents in zip(
-                    access["group"], access["location"], access["permissions"], access["parents"]
-                ):
-                    if pandas.isna(permissions):
+            user_exists = _user_exists(user)
+            for group, location, permissions, parents in zip(
+                access["group"], access["location"], access["permissions"], access["parents"]
+            ):
+                if pandas.isna(permissions):
+                    if user_exists:
                         updated = revoke_permissions(user, "" if pandas.isna(location) else location, True, update)
-                        revoke = True
-                    elif isdir(location):
-                        _set_permissions(user, location, permissions)
-                        _apply_to_parent(user, location, parents, update)
+                    else:
+                        access = _get_accesses()
+                        access[
+                            ~((access["user"] == user) & (pandas.isna(location) or (access["location"] == location)))
+                        ].to_csv(ACCESS_FILE, index=False)
+                        _log(f"removed {user} from access because they do not exist")
                         updated = True
-                        current_access = _get_accesses()
-                        added_access = _append_row(current_access, user, group, location, permissions, parents)
-                        if update and not added_access.equals(current_access):
-                            added_access.to_csv(ACCESS_FILE, index=False)
-                            _log(f"set permissions to {location} for {user} in group {group}")
-                    if updated:
-                        pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
+                    revoke = True
+                elif user_exists and isdir(location):
+                    _set_permissions(user, location, permissions)
+                    _apply_to_parent(user, location, parents, update)
+                    updated = True
+                    current_access = _get_accesses()
+                    added_access = _append_row(current_access, user, group, location, permissions, parents)
+                    if update and not added_access.equals(current_access):
+                        added_access.to_csv(ACCESS_FILE, index=False)
+                        _log(f"set permissions to {location} for {user} in group {group}")
+                if updated:
+                    pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
         if update:
             if updated:
                 pending.to_csv(pending_file, index=False)

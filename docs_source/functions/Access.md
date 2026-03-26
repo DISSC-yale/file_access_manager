@@ -15,11 +15,10 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -p PERMISSIONS, --perms PERMISSIONS
+  -p, --perms PERMISSIONS
                         permissions to set to the user
-  -r REMOVE, --remove REMOVE
-                        user to revoke access from
-  -n PARENTS, --parents PARENTS
+  -r, --remove REMOVE   user to revoke access from
+  -n, --parents PARENTS
                         number of parent directories to also assign read and
                         execute permission to
 ```
@@ -50,10 +49,9 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -l LOCATION, --location LOCATION
+  -l, --location LOCATION
                         name or path of a location to check access to
-  -g GROUP, --group GROUP
-                        name of a group to check access for
+  -g, --group GROUP     name of a group to check access for
   -p, --no-pull         disable pull from remote before checking access
   -a, --no-reapply      disable application during check
 ```
