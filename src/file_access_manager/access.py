@@ -170,13 +170,14 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
     pending_file = "pending_" + ACCESS_FILE
     if isfile(pending_file):
         pending = _get_pendings()
-        updated = False
-        revoke = False
+        any_updated = False
+        all_revoke = True
         for user, access in pending.groupby("user"):
             user_exists = _user_exists(user)
             for group, location, permissions, parents in zip(
                 access["group"], access["location"], access["permissions"], access["parents"]
             ):
+                updated = False
                 if pandas.isna(permissions):
                     if user_exists:
                         updated = revoke_permissions(user, "" if pandas.isna(location) else location, True, update)
@@ -187,23 +188,24 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
                         ].to_csv(ACCESS_FILE, index=False)
                         _log(f"removed {user} from access because they do not exist")
                         updated = True
-                    revoke = True
                 elif user_exists and isdir(location):
+                    all_revoke = False
                     _set_permissions(user, location, permissions)
                     _apply_to_parent(user, location, parents, update)
-                    updated = True
                     current_access = _get_accesses()
                     added_access = _append_row(current_access, user, group, location, permissions, parents)
                     if update and not added_access.equals(current_access):
+                        updated = True
                         added_access.to_csv(ACCESS_FILE, index=False)
                         _log(f"set permissions to {location} for {user} in group {group}")
                 if updated:
+                    any_updated = True
                     pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
         if update:
-            if updated:
+            if any_updated:
                 pending.to_csv(pending_file, index=False)
                 _git_update("processed pending permissions", push)
-            elif revoke and push:
+            elif all_revoke and push:
                 _git_update(bypass=True)
     else:
         print("no pending users")
