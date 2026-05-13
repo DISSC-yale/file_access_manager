@@ -171,7 +171,7 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
     if isfile(pending_file):
         pending = _get_pendings()
         any_updated = False
-        all_revoke = True
+        any_revoke = False
         for user, access in pending.groupby("user"):
             user_exists = _user_exists(user)
             for group, location, permissions, parents in zip(
@@ -188,8 +188,8 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
                         ].to_csv(ACCESS_FILE, index=False)
                         _log(f"removed {user} from access because they do not exist")
                         updated = True
+                    any_revoke = True
                 elif user_exists and isdir(location):
-                    all_revoke = False
                     _set_permissions(user, location, permissions)
                     _apply_to_parent(user, location, parents, update)
                     current_access = _get_accesses()
@@ -205,7 +205,7 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
             if any_updated:
                 pending.to_csv(pending_file, index=False)
                 _git_update("processed pending permissions", push)
-            elif all_revoke and push:
+            elif any_revoke and push:
                 _git_update(bypass=True)
     else:
         print("no pending users")
