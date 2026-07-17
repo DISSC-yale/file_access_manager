@@ -3,7 +3,7 @@
 import json
 import subprocess
 from os import chdir, getcwd, makedirs
-from os.path import abspath, isdir, isfile
+from os.path import abspath, exists
 from pathlib import Path
 from shutil import which
 from typing import Union
@@ -55,7 +55,7 @@ def init_manager_project(
         subprocess.run([GIT_PATH, "remote", "add", "origin", git_remote], check=False)
     if (
         GIT_PATH
-        and not isfile(".gitignore")
+        and not exists(".gitignore")
         and subprocess.run([GIT_PATH, "pull", "origin", git_branch], check=False, capture_output=True).returncode != 0
     ):
         # first-time git setup
@@ -65,20 +65,20 @@ def init_manager_project(
             opened.write(".*\n!.gitignore")
     set_options(auto_commit=auto_commit, auto_push=auto_push, defer=defer)
     if locations:
-        if isfile(LOCATIONS_FILE):
+        if exists(LOCATIONS_FILE):
             with open(LOCATIONS_FILE, encoding="utf-8") as opened:
                 locations = {**json.load(opened), **locations}
         with open(LOCATIONS_FILE, "w", encoding="utf-8") as opened:
             json.dump(locations, opened, indent=2, sort_keys=True)
-    elif not isfile(LOCATIONS_FILE):
+    elif not exists(LOCATIONS_FILE):
         with open(LOCATIONS_FILE, "w", encoding="utf-8") as opened:
             opened.write("{}")
     Path.touch(Path("log.txt"), exist_ok=True)
-    if not isfile(ACCESS_FILE):
+    if not exists(ACCESS_FILE):
         pandas.DataFrame(columns=list(ACCESS_STRUCTURE.keys())).to_csv(ACCESS_FILE, index=False)
-    if not isfile("pending_" + ACCESS_FILE):
+    if not exists("pending_" + ACCESS_FILE):
         pandas.DataFrame(columns=list(ACCESS_STRUCTURE.keys())).to_csv("pending_" + ACCESS_FILE, index=False)
-    if not isfile("README.md"):
+    if not exists("README.md"):
         with open("README.md", "w", encoding="utf-8") as opened:
             opened.write(
                 "\n\n".join(
@@ -131,7 +131,7 @@ def set_options(**kwargs: Union[bool, str]):
 
 def _get_config():
     file = "config.json"
-    if not isfile(file):
+    if not exists(file):
         config = {"auto_commit": True, "auto_push": False, "defer": False}
         with open(file, "w", encoding="utf-8") as opened:
             json.dump(config, opened, indent=2, sort_keys=True)
@@ -143,7 +143,7 @@ def _get_config():
 
 def _git_update(message: Union[str, None] = None, bypass: bool = False):
     config = _get_config()
-    if isdir(".git") and GIT_PATH:
+    if exists(".git") and GIT_PATH:
         if message and (config["auto_commit"] or bypass):
             subprocess.run([GIT_PATH, "add", "-A"], check=False)
             subprocess.run([GIT_PATH, "commit", "-m", message], check=False)
@@ -152,14 +152,14 @@ def _git_update(message: Union[str, None] = None, bypass: bool = False):
 
 
 def _check_for_project(file: str):
-    if not isfile(file):
+    if not exists(file):
         msg = f"directory does not appear to be an access management project ({file} does not exist)"
         raise RuntimeError(msg)
 
 
 def _validate_location(path: str):
     allowed_dirs: "list[str]" = []
-    if isfile(ALLOW_DIRS_FILE):
+    if exists(ALLOW_DIRS_FILE):
         with open(ALLOW_DIRS_FILE, encoding="utf-8") as file:
             for line in file.readlines():
                 allowed_dirs.append(abspath(line.rstrip()))

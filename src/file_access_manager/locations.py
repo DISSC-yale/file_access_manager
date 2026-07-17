@@ -2,7 +2,7 @@
 
 import json
 import warnings
-from os.path import isdir
+from os.path import exists
 
 from file_access_manager.project import LOCATIONS_FILE, _check_for_project, _git_update
 
@@ -36,7 +36,7 @@ def add_location(name: str, path: str):
     if name in ["locations", "init", "check", "pending", "config"]:
         msg = "location name cannot match function names: locations, init, check, pending, or config"
         raise ValueError(msg)
-    if not isdir(path):
+    if not exists(path):
         warnings.warn(f"{path} does not exist", stacklevel=2)
     action = "edited" if name in locations else "created"
     message = f"{action} named location: {name} = {path}"

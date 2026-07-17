@@ -3,7 +3,7 @@
 import re
 import subprocess
 import warnings
-from os.path import abspath, dirname, isdir, isfile
+from os.path import abspath, dirname, exists
 from pathlib import Path
 from shutil import which
 from time import ctime
@@ -43,11 +43,11 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
     """
     access = _get_accesses()
     defer = _get_config().get("defer", False)
-    if isdir(location):
+    if exists(location):
         path = location
     else:
         path = _get_locations().get(location, location)
-        if not defer and not isdir(path):
+        if not defer and not exists(path):
             msg = f"location ({location}) does not exist"
             raise RuntimeError(msg)
     path = re.sub(r"[\\/]$", "", path)
@@ -169,7 +169,7 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
         push (bool): If `True`, will push any changes made (bypassing auto_push option).
         update (bool): If `False`, will not change pending or access files.
     """
-    if pull and GIT_PATH and isdir(".git"):
+    if pull and GIT_PATH and exists(".git"):
         if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).returncode != 0:
             warnings.warn("failed to pull before checking pending", stacklevel=2)
     pending_file = "pending_" + ACCESS_FILE
@@ -179,7 +179,7 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
             update = False
         else:
             lock_file.touch()
-    if isfile(pending_file):
+    if exists(pending_file):
         pending = _get_pendings()
         any_updated = False
         any_revoke = False
@@ -199,7 +199,7 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
                         _log(f"removed {user} from access because they do not exist")
                         updated = True
                     any_revoke = True
-                elif user_exists and isdir(location):
+                elif user_exists and exists(location):
                     _set_permissions(user, location, permissions)
                     _apply_to_parent(user, location, parents, update)
                     current_access = _get_accesses()
@@ -411,7 +411,7 @@ def check_access(
     Returns:
         A tuple containing [0] current and [1] pending access.
     """
-    if pull and GIT_PATH and isdir(".git"):
+    if pull and GIT_PATH and exists(".git"):
         if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).returncode != 0:
             warnings.warn("failed to pull before checking pending", stacklevel=2)
     access = _get_accesses()
@@ -431,7 +431,7 @@ def check_access(
         access["actual_permissions"] = "None"
         access["access_to_parents"] = False
         for check_location in access["location"].unique():
-            if isdir(check_location):
+            if exists(check_location):
                 target_access = access[access["location"] == check_location]
                 current_access = _get_current_access(check_location)
                 for current_user in target_access["user"].unique():
@@ -464,7 +464,7 @@ def check_access(
 
 def _get_current_access(location: str) -> "dict[str, str]":
     if GETFACL_PATH:
-        if not isfile(location) or not isdir(location):
+        if not exists(location):
             return {}
         current = subprocess.run([GETFACL_PATH, "-ac", location], check=False, capture_output=True)
         if current.returncode != 0:
