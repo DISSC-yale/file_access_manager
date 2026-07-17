@@ -173,13 +173,13 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
         if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).returncode != 0:
             warnings.warn("failed to pull before checking pending", stacklevel=2)
     pending_file = "pending_" + ACCESS_FILE
-    lock_file = Path(".PROCESSING_PENDING")
-    if update:
-        if lock_file.is_file():
-            update = False
-        else:
-            lock_file.touch()
     if exists(pending_file):
+        lock_file = Path(".PROCESSING_PENDING")
+        if update:
+            if lock_file.is_file():
+                update = False
+            else:
+                lock_file.touch()
         pending = _get_pendings()
         any_updated = False
         any_revoke = False
