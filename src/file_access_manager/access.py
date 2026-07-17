@@ -3,7 +3,8 @@
 import re
 import subprocess
 import warnings
-from os.path import dirname, isdir, isfile
+from os.path import abspath, dirname, isdir, isfile
+from pathlib import Path
 from shutil import which
 from time import ctime
 from typing import Union
@@ -18,6 +19,7 @@ from file_access_manager.project import (
     _check_for_project,
     _get_config,
     _git_update,
+    _validate_location,
 )
 
 ID_PATH = which("id")
@@ -32,9 +34,10 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
     Args:
         location (str): Name of a location, or path, to grant `user` `permissions` to.
         user (str): Name of the user.
-        group (str): Group to assign the user to. Defaults to the user themselves. Here,
-            groups grant the user the group's access, and any permissions assigned to the
-            user in the group would be removed with the group not on removal from the group.
+        group (str): User under which the access is granted. This is used to revoke access
+            to sub-users when the group user's access is removed (e.g., in cases where a primary
+            investigator gets access [a user within their own group],
+            and assistants working for them also need access [users within the PI's group]).
         permissions (str): Permission string (e.g., "rwx").
         parents (int): Number of parent directories on which to set read and execute permissions.
     """
@@ -43,11 +46,11 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
     if isdir(location):
         path = location
     else:
-        path = _get_locations().get(location, "")
+        path = _get_locations().get(location, location)
         if not defer and not isdir(path):
             msg = f"location ({location}) does not exist"
             raise RuntimeError(msg)
-    path = path.replace("[\\/]$", "")
+    path = re.sub(r"[\\/]$", "", path)
     if not group:
         group = user
     message = ""
@@ -61,14 +64,14 @@ def set_permission(location: str, user: str, group: Union[str, None] = None, per
     else:
         _apply_to_parent(user, path, parents)
         res = _set_permissions(user, path, permissions)
-        if res.stderr == b"":
+        if res.returncode == 0:
             updated = _append_row(access, user, group, path, permissions, parents)
             if not updated.equals(access):
                 updated.to_csv(ACCESS_FILE, index=False)
                 message = f"set permissions to {location} for {user} in group {group}"
                 _log(message)
         else:
-            print(res.stderr)
+            print(res.stderr.decode("utf-8"))
             _log(f"failed to set permissions for {user}")
     if message:
         _git_update(message)
@@ -86,12 +89,15 @@ def _get_pendings():
 
 def _set_permissions(user: str, path: str, perms: str, recursive: bool = True):
     if SETFACL_PATH:
+        if not _validate_location(path):
+            msg = f"location {path} is not within an allowed directory"
+            raise RuntimeError(msg)
         res = subprocess.run(
-            [SETFACL_PATH, *(["-R", "-m"] if recursive else ["-m"]), f"u:{user}:{perms}", path],
+            [SETFACL_PATH, *(["-Rm"] if recursive else ["-m"]), f"u:{user}:{perms}", path],
             check=False,
             capture_output=True,
         )
-        if res.stderr != b"":
+        if res.returncode != 0:
             warnings.warn(
                 f"failed to set permissions for user {user} on path {path}: {res.stderr.decode('utf-8')}",
                 stacklevel=2,
@@ -112,20 +118,19 @@ def _set_permissions(user: str, path: str, perms: str, recursive: bool = True):
 
 def _apply_to_parent(user: str, path: str, parents: int, update: bool = True):
     failed = False
-    parent = path
+    parent = abspath(path)
     for _ in range(parents):
         parent = dirname(parent)
         if parent:
             res = _set_permissions(user, parent, "rx", False)
-            failed = res.stderr != b"" or user not in _get_current_access(parent)
+            failed = res.returncode != 0 or user not in _get_current_access(parent)
             if failed:
+                print(res.stderr.decode("utf-8"))
+                if update:
+                    _log(f"failed to set permissions on parents for {user}")
                 break
         else:
             break
-    if failed:
-        print(res.stderr)
-        if update:
-            _log(f"failed to set permissions on parents for {user}")
     return not failed
 
 
@@ -165,9 +170,15 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
         update (bool): If `False`, will not change pending or access files.
     """
     if pull and GIT_PATH and isdir(".git"):
-        if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).stderr != b"":
+        if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).returncode != 0:
             warnings.warn("failed to pull before checking pending", stacklevel=2)
     pending_file = "pending_" + ACCESS_FILE
+    lock_file = Path(".PROCESSING_PENDING")
+    if update:
+        if lock_file.is_file():
+            update = False
+        else:
+            lock_file.touch()
     if isfile(pending_file):
         pending = _get_pendings()
         any_updated = False
@@ -179,9 +190,8 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
             ):
                 updated = False
                 if pandas.isna(permissions):
-                    if user_exists:
-                        updated = revoke_permissions(user, "" if pandas.isna(location) else location, True, update)
-                    else:
+                    updated = revoke_permissions(user, "" if pandas.isna(location) else location, True, update)
+                    if not user_exists:
                         access = _get_accesses()
                         access[
                             ~((access["user"] == user) & (pandas.isna(location) or (access["location"] == location)))
@@ -200,33 +210,40 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
                         _log(f"set permissions to {location} for {user} in group {group}")
                 if updated:
                     any_updated = True
-                    pending = pending[~((pending["user"] == user) & (pending["location"] == location))]
+                    pending = pending[
+                        ~((pending["user"] == user) & (pandas.isna(location) or (access["location"] == location)))
+                    ]
         if update:
             if any_updated:
                 pending.to_csv(pending_file, index=False)
+                lock_file.unlink()
                 _git_update("processed pending permissions", push)
             elif any_revoke and push:
+                lock_file.unlink()
                 _git_update(bypass=True)
     else:
         print("no pending users")
 
 
 def _user_exists(user: str):
-    return ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).stderr == b""
+    return ID_PATH and subprocess.run([ID_PATH, user], check=False, capture_output=True).returncode == 0
 
 
-def _revoke(user: str, path: str, recursive: bool = False):
+def _revoke(user: str, path: str, recursive: bool = True):
     if not recursive:
         set_perms = _get_current_access(path)
         if user not in set_perms:
             return True
     if SETFACL_PATH:
+        if not _validate_location(path):
+            msg = f"location {path} is not within an allowed directory"
+            raise RuntimeError(msg)
         res = subprocess.run(
-            [SETFACL_PATH, *(["-R", "-x"] if recursive else ["-x"]), f"u:{user}", path],
+            [SETFACL_PATH, *(["-Rx"] if recursive else ["-x"]), f"u:{user}", path],
             check=False,
             capture_output=True,
         )
-        success = res.stderr == b""
+        success = res.returncode == 0
         failure_message = f"failed to revoke access to {path} from {user}: "
         if success:
             set_perms = _get_current_access(path)
@@ -270,24 +287,26 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                     _git_update(message)
             return False
         if location:
-            parents = access.loc[su & (access["location"] == path), "parents"].max()
-            alt_access = access.loc[su & (access["location"] != path), "location"].unique()
-            parent_path = dirname(path)
-            for _ in range(parents):
-                retain = False
-                for alt_path in alt_access:
-                    if parent_path in alt_path:
-                        retain = True
-                        break
-                if not retain and not _revoke(user, parent_path, False):
+            location_access = su & (access["location"] == path)
+            if location_access.any():
+                parents = access.loc[location_access, "parents"].max()
+                alt_access = access.loc[su & (access["location"] != path), "location"].unique()
+                parent_path = dirname(path)
+                for _ in range(parents):
+                    retain = False
+                    for alt_path in alt_access:
+                        if parent_path in alt_path:
+                            retain = True
+                            break
+                    if not retain and not _revoke(user, parent_path, False):
+                        any_fail = True
+                    parent_path = dirname(parent_path)
+                removed = removed & (access["location"] == path)
+                success = _revoke(user, path)
+                if success:
+                    _log(f"removed permissions from {user}: they can no longer access {path}", active)
+                else:
                     any_fail = True
-                parent_path = dirname(parent_path)
-            removed = removed & (access["location"] == path)
-            success = _revoke(user, path)
-            if success:
-                _log(f"removed permissions from {user}: they can no longer access {path}", active)
-            else:
-                any_fail = True
         else:
             user_access = access[su]
             any_parent_fail = False
@@ -317,14 +336,20 @@ def revoke_permissions(user: str, location: "Union[str, None]" = None, from_pend
                 group_access = group_access[group_access["location"] == path]
                 if len(group_access):
                     for sub_user in group_access["user"]:
-                        success = _revoke(sub_user, path)
-                        if success:
-                            _log(
-                                f"removed permissions from {sub_user}: they can no longer access {path} under {user}",
-                                active,
-                            )
-                        else:
-                            any_fail = True
+                        if not len(
+                            access[
+                                (access["user"] == sub_user) & (access["location"] == path) & (access["group"] != user)
+                            ]
+                        ):
+                            success = _revoke(sub_user, path)
+                            if success:
+                                _log(
+                                    f"removed permissions from {sub_user}:"
+                                    f"they can no longer access {path} under {user}",
+                                    active,
+                                )
+                            else:
+                                any_fail = True
             else:
                 for sub_user, path in zip(group_access["user"], group_access["location"]):
                     success = _revoke(sub_user, path)
@@ -380,14 +405,14 @@ def check_access(
         location (str): Location to check access for.
         group (str): Group to check access for.
         pull (bool): If `False`, will not pull the remote before checking access.
-        reapply (bool): If `False`, will attempt to set all permissions check checking.
+        reapply (bool): If `False`, will not attempt to set all permissions when checking.
         verbose (bool): If `False`, will not print subset access.
 
     Returns:
         A tuple containing [0] current and [1] pending access.
     """
     if pull and GIT_PATH and isdir(".git"):
-        if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).stderr != b"":
+        if subprocess.run([GIT_PATH, "pull"], check=False, capture_output=True).returncode != 0:
             warnings.warn("failed to pull before checking pending", stacklevel=2)
     access = _get_accesses()
     pending = _get_pendings()
@@ -415,8 +440,8 @@ def check_access(
                         current_perms = current_access.get(current_user)
                         if reapply:
                             res = _set_permissions(current_user, check_location, target_perms.iloc[0]["permissions"])
-                            if res.stderr == b"":
-                                current_perms = target_perms.iloc[0]["permissions"]
+                            if res.returncode == 0:
+                                current_perms = _get_current_access(check_location).get(current_user)
                         access.loc[
                             (access["location"] == check_location) & (access["user"] == current_user),
                             "actual_permissions",
@@ -437,10 +462,12 @@ def check_access(
     return (access, pending)
 
 
-def _get_current_access(location: str):
+def _get_current_access(location: str) -> "dict[str, str]":
     if GETFACL_PATH:
+        if not isfile(location) or not isdir(location):
+            return {}
         current = subprocess.run([GETFACL_PATH, "-ac", location], check=False, capture_output=True)
-        if current.stdout == b"" and current.stderr != b"":
+        if current.returncode != 0:
             msg = f"failed to check current access: {current.stderr.decode('utf-8')}"
             raise RuntimeError(msg)
         access = current.stdout.decode("utf-8")
@@ -450,7 +477,7 @@ def _get_current_access(location: str):
         current_users: "dict[str, str]" = {}
         for entry in access.split("\n"):
             entry_parts = entry.split(":")
-            if len(entry_parts) == 3 and entry_parts[1]:
+            if len(entry_parts) > 2 and entry_parts[1]:
                 current_users[entry_parts[1]] = entry_parts[2]
         return current_users
     else:

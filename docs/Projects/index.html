@@ -504,6 +504,33 @@
   
 
     
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CHANGELOG/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Change Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
   </ul>
 </nav>
                   </div>
@@ -555,6 +582,7 @@
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  locations.json
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  log.txt
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>  pending_access.csv
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  .allowed_directories
 </span></code></pre></div>
 <p><code>access.csv</code> keeps a record of what should be current user access. It is a comma delimited file with these columns:</p>
 <ul>
@@ -569,6 +597,7 @@
 <p><code>locations.json</code> keeps an association between names and full paths, for convenience. This is only used for initial translation,
 such that stored references to locations are always the associated path, rather than the name.</p>
 <p><code>log.txt</code> keeps a log of events.</p>
+<p><code>.allowed_directories</code> is an optional file created if <code>allow_dirs</code> is specified, which is not included in the remote repository. This is a text file with an absolute directory path per line. If present, managed locations must be located within these directories.</p>
 
 
 

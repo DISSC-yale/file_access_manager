@@ -33,6 +33,9 @@ def add_location(name: str, path: str):
     locations = _get_locations()
     if name in locations and path == locations[name]:
         return
+    if name in ["locations", "init", "check", "pending", "config"]:
+        msg = "location name cannot match function names: locations, init, check, pending, or config"
+        raise ValueError(msg)
     if not isdir(path):
         warnings.warn(f"{path} does not exist", stacklevel=2)
     action = "edited" if name in locations else "created"

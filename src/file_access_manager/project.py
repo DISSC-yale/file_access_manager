@@ -2,8 +2,8 @@
 
 import json
 import subprocess
-from os import chdir, makedirs
-from os.path import isdir, isfile
+from os import chdir, getcwd, makedirs
+from os.path import abspath, isdir, isfile
 from pathlib import Path
 from shutil import which
 from typing import Union
@@ -13,13 +13,14 @@ import pandas
 ACCESS_FILE = "access.csv"
 ACCESS_STRUCTURE = {"user": str, "group": str, "location": str, "permissions": str, "parents": int, "date": str}
 LOCATIONS_FILE = "locations.json"
+ALLOW_DIRS_FILE = ".allowed_directories"
 GIT_PATH = which("git")
 
 
 def init_manager_project(
     base_dir: str = ".",
-    managers: "Union[list[str], None]" = None,
     locations: "Union[dict[str, str], None]" = None,
+    allow_dirs: "Union[str, list[str], None]" = None,
     git_remote: "Union[str, None]" = None,
     auto_commit: bool = True,
     auto_push: bool = False,
@@ -31,8 +32,9 @@ def init_manager_project(
 
     Args:
         base_dir (str): Path to a directory in which to establish the project.
-        managers (list[str]): A list of users who should have full access to all locations.
         locations (dict[str, str]): A dictionary of initial locations, with names associated with paths.
+        allow_dirs (str | list[str]): A directory or list of directories within which access may be managed.
+            If ommited, any directory is allowed.
         git_remote (str): Location of a remote repository.
         auto_commit (bool): If `False`, will not commit after each action. This is added to the `config.json` file.
         auto_push (bool): If `True`, will push to the remote after each action. This is added to the `config.json` file.
@@ -40,19 +42,21 @@ def init_manager_project(
         git_branch (str): Name of the branch to initially pull in or create.
     """
     makedirs(base_dir, exist_ok=True)
+    initial_dir = getcwd()
     chdir(base_dir)
     fresh = False
     if GIT_PATH:
         subprocess.run([GIT_PATH, "init"], check=False, capture_output=True)
     if git_remote:
         if not GIT_PATH:
+            chdir(initial_dir)
             msg = "`git` is not available"
             raise RuntimeError(msg)
         subprocess.run([GIT_PATH, "remote", "add", "origin", git_remote], check=False)
     if (
         GIT_PATH
         and not isfile(".gitignore")
-        and subprocess.run([GIT_PATH, "pull", "origin", git_branch], check=False, capture_output=True).stderr != b""
+        and subprocess.run([GIT_PATH, "pull", "origin", git_branch], check=False, capture_output=True).returncode != 0
     ):
         # first-time git setup
         fresh = True
@@ -60,15 +64,6 @@ def init_manager_project(
         with open(".gitignore", "w", encoding="utf-8") as opened:
             opened.write(".*\n!.gitignore")
     set_options(auto_commit=auto_commit, auto_push=auto_push, defer=defer)
-    if managers:
-        managers_file = "managers.txt"
-        if isfile(managers_file):
-            with open(managers_file, encoding="utf-8") as opened:
-                for user in opened.readlines():
-                    if user not in managers:
-                        managers.append(user)
-        with open(managers_file, "w", encoding="utf-8") as opened:
-            opened.write("\n".join(managers))
     if locations:
         if isfile(LOCATIONS_FILE):
             with open(LOCATIONS_FILE, encoding="utf-8") as opened:
@@ -97,7 +92,13 @@ def init_manager_project(
                     ]
                 )
             )
+    if allow_dirs:
+        if isinstance(allow_dirs, str):
+            allow_dirs = [allow_dirs]
+        with open(ALLOW_DIRS_FILE, "w", encoding="utf-8") as file:
+            file.write("\n".join(allow_dirs) + "\n")
     _git_update("initial commit" if fresh else "reinitialized")
+    chdir(initial_dir)
 
 
 def set_options(**kwargs: Union[bool, str]):
@@ -154,3 +155,18 @@ def _check_for_project(file: str):
     if not isfile(file):
         msg = f"directory does not appear to be an access management project ({file} does not exist)"
         raise RuntimeError(msg)
+
+
+def _validate_location(path: str):
+    allowed_dirs: "list[str]" = []
+    if isfile(ALLOW_DIRS_FILE):
+        with open(ALLOW_DIRS_FILE, encoding="utf-8") as file:
+            for line in file.readlines():
+                allowed_dirs.append(abspath(line.rstrip()))
+    if not allowed_dirs:
+        return True
+    normed = abspath(path)
+    for allowed in allowed_dirs:
+        if normed.startswith(allowed):
+            return True
+    return False

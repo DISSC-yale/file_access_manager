@@ -42,11 +42,11 @@ def main():
     elif possible_function == "init":
         parser = argparse.ArgumentParser("manage-access init", description="Initialize an access manager project.")
         parser.add_argument("base_dir", nargs="?", default=".", help="directory of the access manager project")
-        parser.add_argument("-m", "--managers", dest="managers", nargs="*", help="manager users")
+        parser.add_argument("-d", "--allow_dirs", dest="allow_dirs", nargs="*", help="allowed directories")
         parser.add_argument("-r", "--remote", dest="remote", help="git remote")
         parser.add_argument("-b", "--branch", dest="branch", default="main", help="git branch")
         args = parser.parse_args(sys.argv[2:])
-        init_manager_project(args.base_dir, managers=args.managers, git_remote=args.remote, git_branch=args.branch)
+        init_manager_project(args.base_dir, allow_dirs=args.allow_dirs, git_remote=args.remote, git_branch=args.branch)
     elif possible_function == "config":
         parser = argparse.ArgumentParser(
             "manage-access config", description="Configure an access manager project.", allow_abbrev=True
@@ -127,6 +127,7 @@ def main():
             "-n",
             "--parents",
             dest="parents",
+            type=int,
             default=1,
             help="number of parent directories to also assign read and execute permission to",
         )

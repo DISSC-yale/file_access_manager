@@ -11,8 +11,8 @@ The main use-case in mind is to manage access of researchers to data files.
 
 ## System Requirements
 
-This package manages access through [Access Control Lists](https://linux.die.net/man/5/acl),
-so this should work on any system with the `getfacl` and `setfacl` commands.
+This package manages user access through [Access Control Lists](https://linux.die.net/man/5/acl),
+so this should work on any Linux system with the `id`, `getfacl`, and `setfacl` commands.
 
 ## Installation
 

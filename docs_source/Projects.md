@@ -16,6 +16,7 @@ access_record/
   locations.json
   log.txt
   pending_access.csv
+  .allowed_directories
 ```
 
 `access.csv` keeps a record of what should be current user access. It is a comma delimited file with these columns:
@@ -34,3 +35,5 @@ This is added to each time a user is granted access to a location, and is remove
 such that stored references to locations are always the associated path, rather than the name.
 
 `log.txt` keeps a log of events.
+
+`.allowed_directories` is an optional file created if `allow_dirs` is specified, which is not included in the remote repository. This is a text file with an absolute directory path per line. If present, managed locations must be located within these directories.

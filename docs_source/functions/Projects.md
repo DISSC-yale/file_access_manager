@@ -5,7 +5,7 @@
 ### init
 
 ```sh
-usage: manage-access init [-h] [-m [MANAGERS ...]] [-r REMOTE] [-b BRANCH]
+usage: manage-access init [-h] [-d [ALLOW_DIRS ...]] [-r REMOTE] [-b BRANCH]
                           [base_dir]
 
 Initialize an access manager project.
@@ -15,8 +15,8 @@ positional arguments:
 
 options:
   -h, --help            show this help message and exit
-  -m, --managers [MANAGERS ...]
-                        manager users
+  -d, --allow_dirs [ALLOW_DIRS ...]
+                        allowed directories
   -r, --remote REMOTE   git remote
   -b, --branch BRANCH   git branch
 ```
