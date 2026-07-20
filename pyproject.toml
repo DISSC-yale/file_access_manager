@@ -58,7 +58,7 @@ dependencies = [
 test = [
   "coverage run -m pytest {args:tests}",
   " - coverage combine",
-  "coverage html -d docs_source/coverage",
+  "coverage html -d docs/coverage",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -71,16 +71,6 @@ exclude = [
   "/.gitignore",
   "/mkdocs.yml",
 ]
-
-[tool.hatch.envs.docs]
-dependencies = [
-  "mkdocs",
-  "mkdocstrings[python]",
-  "mkdocs-material",
-]
-[tool.hatch.envs.docs.scripts]
-build = "sh docs_source/build_function_docs.sh && mkdocs build --clean --strict"
-serve = "sh docs_source/build_function_docs.sh && mkdocs serve --dev-addr localhost:8000 --clean"
 
 [[tool.hatch.envs.all.matrix]]
 python = ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
@@ -212,3 +202,12 @@ exclude_lines = [
   "if __name__ == .__main__.:",
   "if TYPE_CHECKING:",
 ]
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "zensical",
+  "mkdocstrings-python",
+]
+[tool.hatch.envs.docs.scripts]
+build = "python scripts/update_cli_docs.py && zensical build"
+serve = "zensical serve"

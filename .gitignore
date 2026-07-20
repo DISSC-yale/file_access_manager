@@ -7,13 +7,14 @@ __pycache__/
 *.bak
 .DS_Store
 .idea/
-/.coverage*
 /.benchmarks/
 /.env/
 /.venv/
 /.idea/
 /.mypy_cache/
 /.pytest_cache/
-/dist/
+/.ruff_cache/
+/.cache/
+/site/
 docs_source/articles/*.ipynb
 raw_stats/
