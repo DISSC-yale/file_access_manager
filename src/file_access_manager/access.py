@@ -131,6 +131,7 @@ def _apply_to_parent(user: str, path: str, parents: int, update: bool = True):
                     _log(f"failed to set permissions on parents for {user}")
                 break
         else:
+            failed = user not in _get_current_access(parent)
             break
     return not failed
 
