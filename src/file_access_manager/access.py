@@ -3,6 +3,7 @@
 import re
 import subprocess
 import warnings
+from getpass import getuser
 from os.path import abspath, dirname, exists
 from pathlib import Path
 from shutil import which
@@ -121,7 +122,7 @@ def _apply_to_parent(user: str, path: str, parents: int, update: bool = True):
     parent = abspath(path)
     for _ in range(parents):
         parent = dirname(parent)
-        if parent:
+        if parent and (Path(parent).owner() != getuser()):
             res = _set_permissions(user, parent, "rx", False)
             failed = res.returncode != 0 or user not in _get_current_access(parent)
             if failed:
@@ -213,13 +214,12 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
                     pending = pending[
                         ~((pending["user"] == user) & (pandas.isna(location) or (access["location"] == location)))
                     ]
+        lock_file.unlink()
         if update:
             if any_updated:
                 pending.to_csv(pending_file, index=False)
-                lock_file.unlink()
                 _git_update("processed pending permissions", push)
             elif any_revoke and push:
-                lock_file.unlink()
                 _git_update(bypass=True)
     else:
         print("no pending users")
