@@ -193,14 +193,14 @@ def check_pending(pull: bool = True, push: bool = False, update: bool = True):
                 updated = False
                 if pandas.isna(permissions):
                     updated = revoke_permissions(user, "" if pandas.isna(location) else location, True, update)
-                    if not user_exists:
+                    if update and not user_exists:
                         access = _get_accesses()
                         access[
                             ~((access["user"] == user) & (pandas.isna(location) or (access["location"] == location)))
                         ].to_csv(ACCESS_FILE, index=False)
                         _log(f"removed {user} from access because they do not exist")
                         updated = True
-                    any_revoke = True
+                        any_revoke = True
                 elif user_exists and exists(location):
                     _set_permissions(user, location, permissions)
                     _apply_to_parent(user, location, parents, update)
