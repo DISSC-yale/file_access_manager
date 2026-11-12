@@ -94,7 +94,7 @@ def _set_permissions(user: str, path: str, perms: str, recursive: bool = True):
             msg = f"location {path} is not within an allowed directory"
             raise RuntimeError(msg)
         res = subprocess.run(
-            [SETFACL_PATH, *(["-Rm"] if recursive else ["-m"]), f"u:{user}:{perms}", path],
+            [SETFACL_PATH, *(["-Rnm"] if recursive else ["-nm"]), f"u:{user}:{perms}", path],
             check=False,
             capture_output=True,
         )
@@ -240,7 +240,7 @@ def _revoke(user: str, path: str, recursive: bool = True):
             msg = f"location {path} is not within an allowed directory"
             raise RuntimeError(msg)
         res = subprocess.run(
-            [SETFACL_PATH, *(["-Rx"] if recursive else ["-x"]), f"u:{user}", path],
+            [SETFACL_PATH, *(["-Rnx"] if recursive else ["-nx"]), f"u:{user}", path],
             check=False,
             capture_output=True,
         )
